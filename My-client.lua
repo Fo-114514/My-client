@@ -1,7 +1,62 @@
--- 后门脚本 - 老板定制版
+-- 后门脚本 - 老板定制版（本地资源加载）
 
 local player = game.Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
+
+-- 资源下载函数
+local function downloadAsset(url, fileName)
+    local success, result = pcall(function()
+        if syn and syn.request then
+            local response = syn.request({
+                Url = url,
+                Method = "GET"
+            })
+            if response.StatusCode == 200 then
+                if isfile then
+                    writefile(fileName, response.Body)
+                end
+                return true
+            end
+        end
+        return false
+    end)
+    return success and result
+end
+
+-- 获取本地资源路径
+local function getLocalAsset(fileName)
+    if isfile and isfile(fileName) then
+        if getsynasset then
+            return getsynasset(fileName)
+        elseif readfile then
+            return "rbxasset://" .. readfile(fileName)
+        end
+    end
+    return nil
+end
+
+-- 预下载所有资源
+local function preDownloadAssets()
+    local assets = {
+        {url = "https://raw.githubusercontent.com/Fo-114514/My-client/refs/heads/main/%E8%8F%9C%E5%8D%95%E5%9B%BE%E7%89%87.png", file = "menu_image.png"},
+        {url = "https://raw.githubusercontent.com/Fo-114514/My-client/refs/heads/main/%E5%90%93%E5%94%AC.png", file = "scare1.png"},
+        {url = "https://github.com/Fo-114514/My-client/raw/refs/heads/main/%E5%90%93%E5%94%AC1bgm.ogg", file = "scare1_bgm.ogg"},
+        {url = "https://raw.githubusercontent.com/Fo-114514/My-client/refs/heads/main/%E5%90%93%E5%94%AC2.png", file = "scare2.png"},
+        {url = "https://github.com/Fo-114514/My-client/raw/refs/heads/main/%E6%89%93%E6%AD%8C%E8%88%9E_%E5%90%93%E5%94%AC2,3bgm.mp3", file = "scare23_bgm.mp3"},
+        {url = "https://raw.githubusercontent.com/Fo-114514/My-client/refs/heads/main/%E5%A4%A9%E7%A9%BA.png", file = "sky.png"},
+        {url = "https://raw.githubusercontent.com/Fo-114514/My-client/refs/heads/main/%E5%A4%A9%E7%A9%BA2.png", file = "sky2.png"},
+        {url = "https://github.com/Fo-114514/My-client/raw/refs/heads/main/Jumpstyle_bgm.ogg", file = "Jumpstyle_bgm.ogg"}
+    }
+    
+    for _, asset in pairs(assets) do
+        if not isfile or not isfile(asset.file) then
+            downloadAsset(asset.url, asset.file)
+        end
+    end
+end
+
+-- 先下载所有资源
+preDownloadAssets()
 
 -- 创建主GUI
 local main = Instance.new("ScreenGui")
@@ -24,7 +79,12 @@ local menuImage = Instance.new("ImageLabel")
 menuImage.Parent = Frame
 menuImage.Size = UDim2.new(1, 0, 1, 0)
 menuImage.Position = UDim2.new(0, 0, 0, 0)
-menuImage.Image = "https://raw.githubusercontent.com/Fo-114514/My-client/refs/heads/main/%E8%8F%9C%E5%8D%95%E5%9B%BE%E7%89%87.png"
+local menuAsset = getLocalAsset("menu_image.png")
+if menuAsset then
+    menuImage.Image = menuAsset
+else
+    menuImage.Image = "https://raw.githubusercontent.com/Fo-114514/My-client/refs/heads/main/%E8%8F%9C%E5%8D%95%E5%9B%BE%E7%89%87.png"
+end
 menuImage.BackgroundTransparency = 1
 
 -- 关闭按钮
@@ -54,21 +114,34 @@ local function stopMusic()
     end
 end
 
--- 播放音乐函数
-local function playMusic(url, looped)
+-- 播放音乐函数（使用本地文件）
+local function playMusic(fileName, looped)
     stopMusic()
     local sound = Instance.new("Sound")
-    sound.SoundId = url
     sound.Parent = game.Workspace
     sound.Volume = 1
     sound.Looped = looped or false
+    
+    local localAsset = getLocalAsset(fileName)
+    if localAsset then
+        sound.SoundId = localAsset
+    else
+        -- 如果本地没有，使用原始URL
+        local urls = {
+            ["scare1_bgm.ogg"] = "https://github.com/Fo-114514/My-client/raw/refs/heads/main/%E5%90%93%E5%94%AC1bgm.ogg",
+            ["scare23_bgm.mp3"] = "https://github.com/Fo-114514/My-client/raw/refs/heads/main/%E6%89%93%E6%AD%8C%E8%88%9E_%E5%90%93%E5%94%AC2,3bgm.mp3",
+            ["Jumpstyle_bgm.ogg"] = "https://github.com/Fo-114514/My-client/raw/refs/heads/main/Jumpstyle_bgm.ogg"
+        }
+        sound.SoundId = urls[fileName] or fileName
+    end
+    
     sound:Play()
     currentMusic = sound
     return sound
 end
 
--- 显示全屏图片函数
-local function showFullscreenImage(imageUrl, duration)
+-- 显示全屏图片函数（使用本地文件）
+local function showFullscreenImage(fileName, duration)
     local imageGui = Instance.new("ScreenGui")
     imageGui.Parent = playerGui
     imageGui.Name = "FullscreenImage"
@@ -77,7 +150,19 @@ local function showFullscreenImage(imageUrl, duration)
     imageLabel.Parent = imageGui
     imageLabel.Size = UDim2.new(1, 0, 1, 0)
     imageLabel.Position = UDim2.new(0, 0, 0, 0)
-    imageLabel.Image = imageUrl
+    
+    local localAsset = getLocalAsset(fileName)
+    if localAsset then
+        imageLabel.Image = localAsset
+    else
+        -- 如果本地没有，使用原始URL
+        local urls = {
+            ["scare1.png"] = "https://raw.githubusercontent.com/Fo-114514/My-client/refs/heads/main/%E5%90%93%E5%94%AC.png",
+            ["scare2.png"] = "https://raw.githubusercontent.com/Fo-114514/My-client/refs/heads/main/%E5%90%93%E5%94%AC2.png"
+        }
+        imageLabel.Image = urls[fileName] or fileName
+    end
+    
     imageLabel.BackgroundTransparency = 1
     imageLabel.ZIndex = 10
     
@@ -90,8 +175,19 @@ local function showFullscreenImage(imageUrl, duration)
     return imageGui
 end
 
--- 替换天空盒函数
-local function replaceSkybox(imageUrl)
+-- 替换天空盒函数（使用本地文件）
+local function replaceSkybox(fileName)
+    local localAsset = getLocalAsset(fileName)
+    local imageUrl = localAsset
+    
+    if not imageUrl then
+        local urls = {
+            ["sky.png"] = "https://raw.githubusercontent.com/Fo-114514/My-client/refs/heads/main/%E5%A4%A9%E7%A9%BA.png",
+            ["sky2.png"] = "https://raw.githubusercontent.com/Fo-114514/My-client/refs/heads/main/%E5%A4%A9%E7%A9%BA2.png"
+        }
+        imageUrl = urls[fileName] or fileName
+    end
+    
     local skybox = Instance.new("Sky")
     skybox.SkyboxBk = imageUrl
     skybox.SkyboxDn = imageUrl
@@ -124,8 +220,8 @@ end
 -- 创建所有按钮
 -- 吓唬按钮
 createButton("吓唬", UDim2.new(0.5, -80, 0.1, 0), function()
-    showFullscreenImage("https://raw.githubusercontent.com/Fo-114514/My-client/refs/heads/main/%E5%90%93%E5%94%AC.png", 9)
-    local sound = playMusic("https://github.com/Fo-114514/My-client/raw/refs/heads/main/%E5%90%93%E5%94%AC1bgm.ogg", false)
+    showFullscreenImage("scare1.png", 9)
+    local sound = playMusic("scare1_bgm.ogg", false)
     delay(9, function()
         if sound then
             sound:Stop()
@@ -135,8 +231,8 @@ end)
 
 -- 吓唬2按钮
 createButton("吓唬2", UDim2.new(0.5, -80, 0.2, 0), function()
-    showFullscreenImage("https://raw.githubusercontent.com/Fo-114514/My-client/refs/heads/main/%E5%90%93%E5%94%AC2.png", 18)
-    local sound = playMusic("https://github.com/Fo-114514/My-client/raw/refs/heads/main/%E6%89%93%E6%AD%8C%E8%88%9E_%E5%90%93%E5%94%AC2,3bgm.mp3", false)
+    showFullscreenImage("scare2.png", 18)
+    local sound = playMusic("scare23_bgm.mp3", false)
     delay(18, function()
         if sound then
             sound:Stop()
@@ -146,8 +242,8 @@ end)
 
 -- 吓唬3按钮
 createButton("吓唬3", UDim2.new(0.5, -80, 0.3, 0), function()
-    showFullscreenImage("https://raw.githubusercontent.com/Fo-114514/My-client/refs/heads/main/%E5%90%93%E5%94%AC2.png", 18)
-    local sound = playMusic("https://github.com/Fo-114514/My-client/raw/refs/heads/main/%E6%89%93%E6%AD%8C%E8%88%9E_%E5%90%93%E5%94%AC2,3bgm.mp3", false)
+    showFullscreenImage("scare2.png", 18)
+    local sound = playMusic("scare23_bgm.mp3", false)
     delay(18, function()
         if sound then
             sound:Stop()
@@ -157,17 +253,17 @@ end)
 
 -- sky按钮
 createButton("sky", UDim2.new(0.5, -80, 0.4, 0), function()
-    replaceSkybox("https://raw.githubusercontent.com/Fo-114514/My-client/refs/heads/main/%E5%A4%A9%E7%A9%BA.png")
+    replaceSkybox("sky.png")
 end)
 
 -- sky2按钮
 createButton("sky2", UDim2.new(0.5, -80, 0.5, 0), function()
-    replaceSkybox("https://raw.githubusercontent.com/Fo-114514/My-client/refs/heads/main/%E5%A4%A9%E7%A9%BA2.png")
+    replaceSkybox("sky2.png")
 end)
 
 -- 播放音乐按钮
 createButton("播放音乐", UDim2.new(0.5, -80, 0.6, 0), function()
-    playMusic("https://github.com/Fo-114514/My-client/raw/refs/heads/main/Jumpstyle_bgm.ogg", true)
+    playMusic("Jumpstyle_bgm.ogg", true)
 end)
 
 -- 停止音乐按钮
@@ -175,7 +271,7 @@ createButton("停止音乐", UDim2.new(0.5, -80, 0.7, 0), function()
     stopMusic()
 end)
 
--- 最小化功能（参考原始脚本）
+-- 最小化功能
 local isMinimized = false
 local minimizeButton = Instance.new("TextButton")
 minimizeButton.Parent = Frame
@@ -215,4 +311,3 @@ end)
 player.CharacterAdded:Connect(function()
     stopMusic()
 end)
-
