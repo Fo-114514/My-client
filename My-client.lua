@@ -1,4 +1,4 @@
--- 后门脚本 - 老板定制版（HttpGet下载修复版）
+-- 后门脚本 - 老板定制版（横版UI+国内路径+仅停止音乐）
 
 local player = game.Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -37,7 +37,7 @@ local function getAssetPath(fileName)
     return nil
 end
 
--- 备用：直接用raw URL（如果本地没有的话）
+-- 国内下载路径
 local assetUrls = {
     ["menu_image.png"] = "http://corper.cn/view.php/2dfa05adf24faf57adf8b6a6ac9cfbac.png",
     ["scare1.png"] = "http://corper.cn/view.php/b75ad658e4274177707ace3b5615d6b5.png",
@@ -51,20 +51,17 @@ local assetUrls = {
 
 -- 获取资源（优先本地，没有就用URL或下载）
 local function getFileAsset(fileName)
-    -- 先尝试获取本地asset
     local localPath = getAssetPath(fileName)
     if localPath then
         print("使用本地资源: " .. fileName)
         return localPath
     end
     
-    -- 本地没有，尝试下载
     local url = assetUrls[fileName]
     if url then
         print("尝试下载: " .. fileName)
         downloadAsset(url, fileName)
         
-        -- 下载后再次尝试获取
         local localPath2 = getAssetPath(fileName)
         if localPath2 then
             print("下载后使用本地资源: " .. fileName)
@@ -72,7 +69,6 @@ local function getFileAsset(fileName)
         end
     end
     
-    -- 实在不行返回原始URL（图片可以用URL，音频不行）
     if url then
         print("回退到URL: " .. fileName)
         return url
@@ -100,12 +96,12 @@ main.Parent = playerGui
 main.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 main.ResetOnSpawn = false
 
--- 创建主框架
+-- 创建主框架 - 横长方形
 local Frame = Instance.new("Frame")
 Frame.Parent = main
-Frame.BackgroundColor3 = Color3.fromRGB(255, 255, 255)
-Frame.Position = UDim2.new(0.3, 0, 0.3, 0)
-Frame.Size = UDim2.new(0, 200, 0, 400)
+Frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
+Frame.Position = UDim2.new(0.2, 0, 0.35, 0)
+Frame.Size = UDim2.new(0, 500, 0, 250)
 Frame.Active = true
 Frame.Draggable = true
 
@@ -146,7 +142,6 @@ local function stopMusic()
     if currentMusic then
         pcall(function()
             currentMusic:Stop()
-            currentMusic:Destroy()
         end)
         currentMusic = nil
     end
@@ -162,13 +157,11 @@ local function playMusic(fileName, looped)
         return nil
     end
     
-    -- 如果是URL（非本地resource），需要用特殊方式
     local sound = Instance.new("Sound")
     
     if string.find(assetPath, "rbxasset://") or string.find(assetPath, "rbxassetid://") then
         sound.SoundId = assetPath
     else
-        -- 直接URL，尝试加载
         sound.SoundId = assetPath
     end
     
@@ -176,7 +169,6 @@ local function playMusic(fileName, looped)
     sound.Volume = 1
     sound.Looped = looped or false
     
-    -- 加载并播放
     sound.Loaded:Connect(function()
         print("音频加载成功: " .. fileName)
         sound:Play()
@@ -228,7 +220,6 @@ local function replaceSkybox(fileName)
         return nil
     end
     
-    -- 移除旧的天空盒
     local oldSky = game.Lighting:FindFirstChildOfClass("Sky")
     if oldSky then
         oldSky:Destroy()
@@ -248,17 +239,17 @@ local function replaceSkybox(fileName)
 end
 
 -- 创建按钮函数
-local function createButton(name, position, callback)
+local function createButton(name, position, size, callback)
     local button = Instance.new("TextButton")
     button.Parent = Frame
     button.Name = name
     button.Position = position
-    button.Size = UDim2.new(0, 160, 0, 35)
+    button.Size = size
     button.BackgroundColor3 = Color3.fromRGB(200, 162, 200)
     button.Text = name
     button.TextColor3 = Color3.fromRGB(255, 255, 255)
     button.Font = Enum.Font.SourceSansBold
-    button.TextSize = 16
+    button.TextSize = 14
     
     button.MouseButton1Click:Connect(function()
         print("点击按钮: " .. name)
@@ -268,50 +259,61 @@ local function createButton(name, position, callback)
     return button
 end
 
--- 创建所有功能按钮
-createButton("吓唬", UDim2.new(0.5, -80, 0.1, 0), function()
-    showFullscreenImage("scare1.png", 9)
+-- 创建所有功能按钮 - 横版布局
+-- 第一排
+createButton("吓唬", UDim2.new(0.02, 0, 0.15, 0), UDim2.new(0, 90, 0, 35), function()
     local sound = playMusic("scare1_bgm.ogg", false)
+    showFullscreenImage("scare1.png", 9)
     delay(9, function()
         if sound then
-            stopMusic()
+            pcall(function()
+                sound:Stop()
+            end)
+            print("吓唬音乐已停止")
         end
     end)
 end)
 
-createButton("吓唬2", UDim2.new(0.5, -80, 0.2, 0), function()
-    showFullscreenImage("scare2.png", 18)
+createButton("吓唬2", UDim2.new(0.22, 0, 0.15, 0), UDim2.new(0, 90, 0, 35), function()
     local sound = playMusic("scare23_bgm.mp3", false)
+    showFullscreenImage("scare2.png", 18)
     delay(18, function()
         if sound then
-            stopMusic()
+            pcall(function()
+                sound:Stop()
+            end)
+            print("吓唬2音乐已停止")
         end
     end)
 end)
 
-createButton("吓唬3", UDim2.new(0.5, -80, 0.3, 0), function()
-    showFullscreenImage("scare2.png", 18)
+createButton("吓唬3", UDim2.new(0.42, 0, 0.15, 0), UDim2.new(0, 90, 0, 35), function()
     local sound = playMusic("scare23_bgm.mp3", false)
+    showFullscreenImage("scare2.png", 18)
     delay(18, function()
         if sound then
-            stopMusic()
+            pcall(function()
+                sound:Stop()
+            end)
+            print("吓唬3音乐已停止")
         end
     end)
 end)
 
-createButton("sky", UDim2.new(0.5, -80, 0.4, 0), function()
+createButton("sky", UDim2.new(0.62, 0, 0.15, 0), UDim2.new(0, 80, 0, 35), function()
     replaceSkybox("sky.png")
 end)
 
-createButton("sky2", UDim2.new(0.5, -80, 0.5, 0), function()
+createButton("sky2", UDim2.new(0.8, 0, 0.15, 0), UDim2.new(0, 80, 0, 35), function()
     replaceSkybox("sky2.png")
 end)
 
-createButton("播放音乐", UDim2.new(0.5, -80, 0.6, 0), function()
+-- 第二排
+createButton("播放音乐", UDim2.new(0.02, 0, 0.5, 0), UDim2.new(0, 100, 0, 35), function()
     playMusic("Jumpstyle_bgm.ogg", true)
 end)
 
-createButton("停止音乐", UDim2.new(0.5, -80, 0.7, 0), function()
+createButton("停止音乐", UDim2.new(0.24, 0, 0.5, 0), UDim2.new(0, 100, 0, 35), function()
     stopMusic()
     print("音乐已停止")
 end)
@@ -341,14 +343,14 @@ minimizeButton.MouseButton1Click:Connect(function()
         for _, button in pairs(allButtons) do
             button.Visible = false
         end
-        Frame.Size = UDim2.new(0, 200, 0, 60)
+        Frame.Size = UDim2.new(0, 500, 0, 40)
         menuImage.Visible = false
         print("窗口已最小化")
     else
         for _, button in pairs(allButtons) do
             button.Visible = true
         end
-        Frame.Size = UDim2.new(0, 200, 0, 400)
+        Frame.Size = UDim2.new(0, 500, 0, 250)
         menuImage.Visible = true
         print("窗口已恢复")
     end
