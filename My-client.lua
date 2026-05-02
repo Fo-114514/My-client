@@ -1,4 +1,4 @@
--- 后门脚本 - 老板定制版（横版UI+国内路径+仅停止音乐）
+-- 后门脚本 - 老板定制版（修复吓唬功能）
 
 local player = game.Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -137,20 +137,19 @@ end)
 -- 音乐控制变量
 local currentMusic = nil
 
--- 停止音乐函数
+-- 停止音乐函数（仅停止，不销毁）
 local function stopMusic()
     if currentMusic then
         pcall(function()
             currentMusic:Stop()
         end)
         currentMusic = nil
+        print("音乐已停止")
     end
 end
 
--- 播放音乐函数
-local function playMusic(fileName, looped)
-    stopMusic()
-    
+-- 创建音乐对象
+local function createSound(fileName, looped)
     local assetPath = getFileAsset(fileName)
     if not assetPath then
         print("错误: 找不到音频文件 " .. fileName)
@@ -169,6 +168,18 @@ local function playMusic(fileName, looped)
     sound.Volume = 1
     sound.Looped = looped or false
     
+    return sound
+end
+
+-- 播放音乐函数（用于循环音乐）
+local function playMusic(fileName, looped)
+    stopMusic()
+    
+    local sound = createSound(fileName, looped)
+    if not sound then
+        return nil
+    end
+    
     sound.Loaded:Connect(function()
         print("音频加载成功: " .. fileName)
         sound:Play()
@@ -181,7 +192,7 @@ local function playMusic(fileName, looped)
 end
 
 -- 显示全屏图片函数
-local function showFullscreenImage(fileName, duration)
+local function showFullscreenImage(fileName)
     local assetPath = getFileAsset(fileName)
     if not assetPath then
         print("错误: 找不到图片文件 " .. fileName)
@@ -202,14 +213,46 @@ local function showFullscreenImage(fileName, duration)
     
     print("显示全屏图片: " .. fileName)
     
-    if duration then
-        delay(duration, function()
-            imageGui:Destroy()
-            print("移除全屏图片: " .. fileName)
-        end)
+    return imageGui
+end
+
+-- 吓唬功能：播放音乐+显示图片，指定时间后同时停止
+local function scareAction(imageFile, soundFile, duration)
+    -- 停止之前的音乐
+    stopMusic()
+    
+    -- 先显示图片
+    local imageGui = showFullscreenImage(imageFile)
+    if not imageGui then
+        print("图片显示失败，取消吓唬")
+        return
     end
     
-    return imageGui
+    -- 再创建并播放音乐
+    local sound = createSound(soundFile, false)
+    if sound then
+        sound.Loaded:Connect(function()
+            sound:Play()
+            print("吓唬音乐开始播放: " .. soundFile)
+        end)
+        sound:Load()
+    end
+    
+    -- 定时器：时间到了同时移除图片和停止音乐
+    delay(duration, function()
+        if imageGui then
+            imageGui:Destroy()
+            print("吓唬图片已移除: " .. imageFile)
+        end
+        if sound then
+            pcall(function()
+                sound:Stop()
+            end)
+            print("吓唬音乐已停止: " .. soundFile)
+        end
+    end)
+    
+    print("吓唬开始，持续 " .. duration .. " 秒")
 end
 
 -- 替换天空盒函数
@@ -262,42 +305,15 @@ end
 -- 创建所有功能按钮 - 横版布局
 -- 第一排
 createButton("吓唬", UDim2.new(0.02, 0, 0.15, 0), UDim2.new(0, 90, 0, 35), function()
-    local sound = playMusic("scare1_bgm.ogg", false)
-    showFullscreenImage("scare1.png", 9)
-    delay(9, function()
-        if sound then
-            pcall(function()
-                sound:Stop()
-            end)
-            print("吓唬音乐已停止")
-        end
-    end)
+    scareAction("scare1.png", "scare1_bgm.ogg", 9)
 end)
 
 createButton("吓唬2", UDim2.new(0.22, 0, 0.15, 0), UDim2.new(0, 90, 0, 35), function()
-    local sound = playMusic("scare23_bgm.mp3", false)
-    showFullscreenImage("scare2.png", 18)
-    delay(18, function()
-        if sound then
-            pcall(function()
-                sound:Stop()
-            end)
-            print("吓唬2音乐已停止")
-        end
-    end)
+    scareAction("scare2.png", "scare23_bgm.mp3", 18)
 end)
 
 createButton("吓唬3", UDim2.new(0.42, 0, 0.15, 0), UDim2.new(0, 90, 0, 35), function()
-    local sound = playMusic("scare23_bgm.mp3", false)
-    showFullscreenImage("scare2.png", 18)
-    delay(18, function()
-        if sound then
-            pcall(function()
-                sound:Stop()
-            end)
-            print("吓唬3音乐已停止")
-        end
-    end)
+    scareAction("scare2.png", "scare23_bgm.mp3", 18)
 end)
 
 createButton("sky", UDim2.new(0.62, 0, 0.15, 0), UDim2.new(0, 80, 0, 35), function()
@@ -315,7 +331,6 @@ end)
 
 createButton("停止音乐", UDim2.new(0.24, 0, 0.5, 0), UDim2.new(0, 100, 0, 35), function()
     stopMusic()
-    print("音乐已停止")
 end)
 
 -- 最小化功能
