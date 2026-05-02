@@ -1,4 +1,4 @@
--- 后门脚本 - 老板定制版（本地资源加载）
+-- 后门脚本 - 老板定制版（修复音频加载）
 
 local player = game.Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -12,7 +12,7 @@ local function downloadAsset(url, fileName)
                 Method = "GET"
             })
             if response.StatusCode == 200 then
-                if isfile then
+                if isfile and writefile then
                     writefile(fileName, response.Body)
                 end
                 return true
@@ -23,13 +23,14 @@ local function downloadAsset(url, fileName)
     return success and result
 end
 
--- 获取本地资源路径
-local function getLocalAsset(fileName)
+-- 获取本地资源的customasset路径（用于声音）
+local function getCustomAsset(fileName)
     if isfile and isfile(fileName) then
-        if getsynasset then
-            return getsynasset(fileName)
-        elseif readfile then
-            return "rbxasset://" .. readfile(fileName)
+        local success, result = pcall(function()
+            return getcustomasset(fileName)
+        end)
+        if success and result then
+            return result
         end
     end
     return nil
@@ -50,7 +51,14 @@ local function preDownloadAssets()
     
     for _, asset in pairs(assets) do
         if not isfile or not isfile(asset.file) then
-            downloadAsset(asset.url, asset.file)
+            local downloaded = downloadAsset(asset.url, asset.file)
+            if downloaded then
+                print("下载成功: " .. asset.file)
+            else
+                print("下载失败: " .. asset.file)
+            end
+        else
+            print("文件已存在: " .. asset.file)
         end
     end
 end
@@ -74,16 +82,17 @@ Frame.Size = UDim2.new(0, 200, 0, 400)
 Frame.Active = true
 Frame.Draggable = true
 
--- 菜单背景图片
+-- 菜单背景图片（使用本地文件）
 local menuImage = Instance.new("ImageLabel")
 menuImage.Parent = Frame
 menuImage.Size = UDim2.new(1, 0, 1, 0)
 menuImage.Position = UDim2.new(0, 0, 0, 0)
-local menuAsset = getLocalAsset("menu_image.png")
-if menuAsset then
-    menuImage.Image = menuAsset
+local menuAssetPath = getCustomAsset("menu_image.png")
+if menuAssetPath then
+    menuImage.Image = menuAssetPath
+    print("使用本地菜单图片")
 else
-    menuImage.Image = "https://raw.githubusercontent.com/Fo-114514/My-client/refs/heads/main/%E8%8F%9C%E5%8D%95%E5%9B%BE%E7%89%87.png"
+    print("警告: 菜单图片加载失败")
 end
 menuImage.BackgroundTransparency = 1
 
@@ -108,40 +117,49 @@ local currentMusic = nil
 -- 停止音乐函数
 local function stopMusic()
     if currentMusic then
-        currentMusic:Stop()
-        currentMusic:Destroy()
+        pcall(function()
+            currentMusic:Stop()
+            currentMusic:Destroy()
+        end)
         currentMusic = nil
     end
 end
 
--- 播放音乐函数（使用本地文件）
+-- 播放音乐函数（使用本地customasset路径）
 local function playMusic(fileName, looped)
     stopMusic()
+    
+    local assetPath = getCustomAsset(fileName)
+    if not assetPath then
+        print("错误: 找不到音频文件 " .. fileName)
+        return nil
+    end
+    
     local sound = Instance.new("Sound")
-    sound.Parent = game.Workspace
+    sound.SoundId = assetPath
+    sound.Parent = game:GetService("SoundService") or game.Workspace
     sound.Volume = 1
     sound.Looped = looped or false
     
-    local localAsset = getLocalAsset(fileName)
-    if localAsset then
-        sound.SoundId = localAsset
-    else
-        -- 如果本地没有，使用原始URL
-        local urls = {
-            ["scare1_bgm.ogg"] = "https://github.com/Fo-114514/My-client/raw/refs/heads/main/%E5%90%93%E5%94%AC1bgm.ogg",
-            ["scare23_bgm.mp3"] = "https://github.com/Fo-114514/My-client/raw/refs/heads/main/%E6%89%93%E6%AD%8C%E8%88%9E_%E5%90%93%E5%94%AC2,3bgm.mp3",
-            ["Jumpstyle_bgm.ogg"] = "https://github.com/Fo-114514/My-client/raw/refs/heads/main/Jumpstyle_bgm.ogg"
-        }
-        sound.SoundId = urls[fileName] or fileName
-    end
+    sound.Loaded:Connect(function()
+        print("音频加载成功: " .. fileName)
+        sound:Play()
+    end)
     
-    sound:Play()
+    sound:Load()
     currentMusic = sound
+    print("开始播放: " .. fileName)
     return sound
 end
 
--- 显示全屏图片函数（使用本地文件）
+-- 显示全屏图片函数（使用本地customasset路径）
 local function showFullscreenImage(fileName, duration)
+    local assetPath = getCustomAsset(fileName)
+    if not assetPath then
+        print("错误: 找不到图片文件 " .. fileName)
+        return nil
+    end
+    
     local imageGui = Instance.new("ScreenGui")
     imageGui.Parent = playerGui
     imageGui.Name = "FullscreenImage"
@@ -150,52 +168,46 @@ local function showFullscreenImage(fileName, duration)
     imageLabel.Parent = imageGui
     imageLabel.Size = UDim2.new(1, 0, 1, 0)
     imageLabel.Position = UDim2.new(0, 0, 0, 0)
-    
-    local localAsset = getLocalAsset(fileName)
-    if localAsset then
-        imageLabel.Image = localAsset
-    else
-        -- 如果本地没有，使用原始URL
-        local urls = {
-            ["scare1.png"] = "https://raw.githubusercontent.com/Fo-114514/My-client/refs/heads/main/%E5%90%93%E5%94%AC.png",
-            ["scare2.png"] = "https://raw.githubusercontent.com/Fo-114514/My-client/refs/heads/main/%E5%90%93%E5%94%AC2.png"
-        }
-        imageLabel.Image = urls[fileName] or fileName
-    end
-    
+    imageLabel.Image = assetPath
     imageLabel.BackgroundTransparency = 1
     imageLabel.ZIndex = 10
+    
+    print("显示全屏图片: " .. fileName)
     
     if duration then
         delay(duration, function()
             imageGui:Destroy()
+            print("移除全屏图片: " .. fileName)
         end)
     end
     
     return imageGui
 end
 
--- 替换天空盒函数（使用本地文件）
+-- 替换天空盒函数（使用本地customasset路径）
 local function replaceSkybox(fileName)
-    local localAsset = getLocalAsset(fileName)
-    local imageUrl = localAsset
+    local assetPath = getCustomAsset(fileName)
+    if not assetPath then
+        print("错误: 找不到天空盒文件 " .. fileName)
+        return nil
+    end
     
-    if not imageUrl then
-        local urls = {
-            ["sky.png"] = "https://raw.githubusercontent.com/Fo-114514/My-client/refs/heads/main/%E5%A4%A9%E7%A9%BA.png",
-            ["sky2.png"] = "https://raw.githubusercontent.com/Fo-114514/My-client/refs/heads/main/%E5%A4%A9%E7%A9%BA2.png"
-        }
-        imageUrl = urls[fileName] or fileName
+    -- 移除旧的天空盒
+    local oldSky = game.Lighting:FindFirstChildOfClass("Sky")
+    if oldSky then
+        oldSky:Destroy()
     end
     
     local skybox = Instance.new("Sky")
-    skybox.SkyboxBk = imageUrl
-    skybox.SkyboxDn = imageUrl
-    skybox.SkyboxFt = imageUrl
-    skybox.SkyboxLf = imageUrl
-    skybox.SkyboxRt = imageUrl
-    skybox.SkyboxUp = imageUrl
+    skybox.SkyboxBk = assetPath
+    skybox.SkyboxDn = assetPath
+    skybox.SkyboxFt = assetPath
+    skybox.SkyboxLf = assetPath
+    skybox.SkyboxRt = assetPath
+    skybox.SkyboxUp = assetPath
     skybox.Parent = game.Lighting
+    
+    print("替换天空盒: " .. fileName)
     return skybox
 end
 
@@ -212,63 +224,60 @@ local function createButton(name, position, callback)
     button.Font = Enum.Font.SourceSansBold
     button.TextSize = 16
     
-    button.MouseButton1Click:Connect(callback)
+    button.MouseButton1Click:Connect(function()
+        print("点击按钮: " .. name)
+        callback()
+    end)
     
     return button
 end
 
--- 创建所有按钮
--- 吓唬按钮
+-- 创建所有功能按钮
 createButton("吓唬", UDim2.new(0.5, -80, 0.1, 0), function()
-    showFullscreenImage("scare1.png", 9)
+    local imageGui = showFullscreenImage("scare1.png", 9)
     local sound = playMusic("scare1_bgm.ogg", false)
     delay(9, function()
         if sound then
-            sound:Stop()
+            stopMusic()
         end
     end)
 end)
 
--- 吓唬2按钮
 createButton("吓唬2", UDim2.new(0.5, -80, 0.2, 0), function()
-    showFullscreenImage("scare2.png", 18)
+    local imageGui = showFullscreenImage("scare2.png", 18)
     local sound = playMusic("scare23_bgm.mp3", false)
     delay(18, function()
         if sound then
-            sound:Stop()
+            stopMusic()
         end
     end)
 end)
 
--- 吓唬3按钮
 createButton("吓唬3", UDim2.new(0.5, -80, 0.3, 0), function()
-    showFullscreenImage("scare2.png", 18)
+    local imageGui = showFullscreenImage("scare2.png", 18)
     local sound = playMusic("scare23_bgm.mp3", false)
     delay(18, function()
         if sound then
-            sound:Stop()
+            stopMusic()
         end
     end)
 end)
 
--- sky按钮
 createButton("sky", UDim2.new(0.5, -80, 0.4, 0), function()
     replaceSkybox("sky.png")
 end)
 
--- sky2按钮
 createButton("sky2", UDim2.new(0.5, -80, 0.5, 0), function()
     replaceSkybox("sky2.png")
 end)
 
--- 播放音乐按钮
 createButton("播放音乐", UDim2.new(0.5, -80, 0.6, 0), function()
     playMusic("Jumpstyle_bgm.ogg", true)
 end)
 
--- 停止音乐按钮
 createButton("停止音乐", UDim2.new(0.5, -80, 0.7, 0), function()
     stopMusic()
+    print("音乐已停止")
 end)
 
 -- 最小化功能
@@ -298,12 +307,14 @@ minimizeButton.MouseButton1Click:Connect(function()
         end
         Frame.Size = UDim2.new(0, 200, 0, 60)
         menuImage.Visible = false
+        print("窗口已最小化")
     else
         for _, button in pairs(allButtons) do
             button.Visible = true
         end
         Frame.Size = UDim2.new(0, 200, 0, 400)
         menuImage.Visible = true
+        print("窗口已恢复")
     end
 end)
 
@@ -311,3 +322,4 @@ end)
 player.CharacterAdded:Connect(function()
     stopMusic()
 end)
+
