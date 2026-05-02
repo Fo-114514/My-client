@@ -1,30 +1,31 @@
--- 后门脚本 - 老板定制版（修复音频加载）
+-- 后门脚本 - 老板定制版（HttpGet下载修复版）
 
 local player = game.Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
--- 资源下载函数
+-- 资源下载函数 - 使用game:HttpGet
 local function downloadAsset(url, fileName)
     local success, result = pcall(function()
-        if syn and syn.request then
-            local response = syn.request({
-                Url = url,
-                Method = "GET"
-            })
-            if response.StatusCode == 200 then
-                if isfile and writefile then
-                    writefile(fileName, response.Body)
-                end
+        local response = game:HttpGet(url)
+        if response and #response > 0 then
+            if writefile then
+                writefile(fileName, response)
+                print("下载成功: " .. fileName .. " (大小: " .. #response .. " 字节)")
                 return true
             end
+        else
+            print("下载失败: 响应为空")
         end
         return false
     end)
-    return success and result
+    if not success then
+        print("下载异常: " .. tostring(result))
+    end
+    return false
 end
 
--- 获取本地资源的customasset路径（用于声音）
-local function getCustomAsset(fileName)
+-- 获取本地资源的customasset路径
+local function getAssetPath(fileName)
     if isfile and isfile(fileName) then
         local success, result = pcall(function()
             return getcustomasset(fileName)
@@ -36,35 +37,61 @@ local function getCustomAsset(fileName)
     return nil
 end
 
--- 预下载所有资源
-local function preDownloadAssets()
-    local assets = {
-        {url = "https://raw.githubusercontent.com/Fo-114514/My-client/refs/heads/main/%E8%8F%9C%E5%8D%95%E5%9B%BE%E7%89%87.png", file = "menu_image.png"},
-        {url = "https://raw.githubusercontent.com/Fo-114514/My-client/refs/heads/main/%E5%90%93%E5%94%AC.png", file = "scare1.png"},
-        {url = "https://github.com/Fo-114514/My-client/raw/refs/heads/main/%E5%90%93%E5%94%AC1bgm.ogg", file = "scare1_bgm.ogg"},
-        {url = "https://raw.githubusercontent.com/Fo-114514/My-client/refs/heads/main/%E5%90%93%E5%94%AC2.png", file = "scare2.png"},
-        {url = "https://github.com/Fo-114514/My-client/raw/refs/heads/main/%E6%89%93%E6%AD%8C%E8%88%9E_%E5%90%93%E5%94%AC2,3bgm.mp3", file = "scare23_bgm.mp3"},
-        {url = "https://raw.githubusercontent.com/Fo-114514/My-client/refs/heads/main/%E5%A4%A9%E7%A9%BA.png", file = "sky.png"},
-        {url = "https://raw.githubusercontent.com/Fo-114514/My-client/refs/heads/main/%E5%A4%A9%E7%A9%BA2.png", file = "sky2.png"},
-        {url = "https://github.com/Fo-114514/My-client/raw/refs/heads/main/Jumpstyle_bgm.ogg", file = "Jumpstyle_bgm.ogg"}
-    }
+-- 备用：直接用raw URL（如果本地没有的话）
+local assetUrls = {
+    ["menu_image.png"] = "https://raw.githubusercontent.com/Fo-114514/My-client/refs/heads/main/%E8%8F%9C%E5%8D%95%E5%9B%BE%E7%89%87.png",
+    ["scare1.png"] = "https://raw.githubusercontent.com/Fo-114514/My-client/refs/heads/main/%E5%90%93%E5%94%AC.png",
+    ["scare1_bgm.ogg"] = "https://github.com/Fo-114514/My-client/raw/refs/heads/main/%E5%90%93%E5%94%AC1bgm.ogg",
+    ["scare2.png"] = "https://raw.githubusercontent.com/Fo-114514/My-client/refs/heads/main/%E5%90%93%E5%94%AC2.png",
+    ["scare23_bgm.mp3"] = "https://github.com/Fo-114514/My-client/raw/refs/heads/main/%E6%89%93%E6%AD%8C%E8%88%9E_%E5%90%93%E5%94%AC2,3bgm.mp3",
+    ["sky.png"] = "https://raw.githubusercontent.com/Fo-114514/My-client/refs/heads/main/%E5%A4%A9%E7%A9%BA.png",
+    ["sky2.png"] = "https://raw.githubusercontent.com/Fo-114514/My-client/refs/heads/main/%E5%A4%A9%E7%A9%BA2.png",
+    ["Jumpstyle_bgm.ogg"] = "https://github.com/Fo-114514/My-client/raw/refs/heads/main/Jumpstyle_bgm.ogg"
+}
+
+-- 获取资源（优先本地，没有就用URL或下载）
+local function getFileAsset(fileName)
+    -- 先尝试获取本地asset
+    local localPath = getAssetPath(fileName)
+    if localPath then
+        print("使用本地资源: " .. fileName)
+        return localPath
+    end
     
-    for _, asset in pairs(assets) do
-        if not isfile or not isfile(asset.file) then
-            local downloaded = downloadAsset(asset.url, asset.file)
-            if downloaded then
-                print("下载成功: " .. asset.file)
-            else
-                print("下载失败: " .. asset.file)
-            end
-        else
-            print("文件已存在: " .. asset.file)
+    -- 本地没有，尝试下载
+    local url = assetUrls[fileName]
+    if url then
+        print("尝试下载: " .. fileName)
+        downloadAsset(url, fileName)
+        
+        -- 下载后再次尝试获取
+        local localPath2 = getAssetPath(fileName)
+        if localPath2 then
+            print("下载后使用本地资源: " .. fileName)
+            return localPath2
         end
     end
+    
+    -- 实在不行返回原始URL（图片可以用URL，音频不行）
+    if url then
+        print("回退到URL: " .. fileName)
+        return url
+    end
+    
+    print("无法获取资源: " .. fileName)
+    return nil
 end
 
 -- 先下载所有资源
-preDownloadAssets()
+print("开始下载资源...")
+for fileName, url in pairs(assetUrls) do
+    if not isfile or not isfile(fileName) then
+        downloadAsset(url, fileName)
+    else
+        print("文件已存在: " .. fileName)
+    end
+end
+print("资源下载完成")
 
 -- 创建主GUI
 local main = Instance.new("ScreenGui")
@@ -82,15 +109,15 @@ Frame.Size = UDim2.new(0, 200, 0, 400)
 Frame.Active = true
 Frame.Draggable = true
 
--- 菜单背景图片（使用本地文件）
+-- 菜单背景图片
 local menuImage = Instance.new("ImageLabel")
 menuImage.Parent = Frame
 menuImage.Size = UDim2.new(1, 0, 1, 0)
 menuImage.Position = UDim2.new(0, 0, 0, 0)
-local menuAssetPath = getCustomAsset("menu_image.png")
-if menuAssetPath then
-    menuImage.Image = menuAssetPath
-    print("使用本地菜单图片")
+local menuAsset = getFileAsset("menu_image.png")
+if menuAsset then
+    menuImage.Image = menuAsset
+    print("菜单图片加载成功")
 else
     print("警告: 菜单图片加载失败")
 end
@@ -125,22 +152,31 @@ local function stopMusic()
     end
 end
 
--- 播放音乐函数（使用本地customasset路径）
+-- 播放音乐函数
 local function playMusic(fileName, looped)
     stopMusic()
     
-    local assetPath = getCustomAsset(fileName)
+    local assetPath = getFileAsset(fileName)
     if not assetPath then
         print("错误: 找不到音频文件 " .. fileName)
         return nil
     end
     
+    -- 如果是URL（非本地resource），需要用特殊方式
     local sound = Instance.new("Sound")
-    sound.SoundId = assetPath
-    sound.Parent = game:GetService("SoundService") or game.Workspace
+    
+    if string.find(assetPath, "rbxasset://") or string.find(assetPath, "rbxassetid://") then
+        sound.SoundId = assetPath
+    else
+        -- 直接URL，尝试加载
+        sound.SoundId = assetPath
+    end
+    
+    sound.Parent = game:GetService("SoundService")
     sound.Volume = 1
     sound.Looped = looped or false
     
+    -- 加载并播放
     sound.Loaded:Connect(function()
         print("音频加载成功: " .. fileName)
         sound:Play()
@@ -152,9 +188,9 @@ local function playMusic(fileName, looped)
     return sound
 end
 
--- 显示全屏图片函数（使用本地customasset路径）
+-- 显示全屏图片函数
 local function showFullscreenImage(fileName, duration)
-    local assetPath = getCustomAsset(fileName)
+    local assetPath = getFileAsset(fileName)
     if not assetPath then
         print("错误: 找不到图片文件 " .. fileName)
         return nil
@@ -184,9 +220,9 @@ local function showFullscreenImage(fileName, duration)
     return imageGui
 end
 
--- 替换天空盒函数（使用本地customasset路径）
+-- 替换天空盒函数
 local function replaceSkybox(fileName)
-    local assetPath = getCustomAsset(fileName)
+    local assetPath = getFileAsset(fileName)
     if not assetPath then
         print("错误: 找不到天空盒文件 " .. fileName)
         return nil
@@ -218,7 +254,7 @@ local function createButton(name, position, callback)
     button.Name = name
     button.Position = position
     button.Size = UDim2.new(0, 160, 0, 35)
-    button.BackgroundColor3 = Color3.fromRGB(200, 162, 200) -- 淡紫色
+    button.BackgroundColor3 = Color3.fromRGB(200, 162, 200)
     button.Text = name
     button.TextColor3 = Color3.fromRGB(255, 255, 255)
     button.Font = Enum.Font.SourceSansBold
@@ -234,7 +270,7 @@ end
 
 -- 创建所有功能按钮
 createButton("吓唬", UDim2.new(0.5, -80, 0.1, 0), function()
-    local imageGui = showFullscreenImage("scare1.png", 9)
+    showFullscreenImage("scare1.png", 9)
     local sound = playMusic("scare1_bgm.ogg", false)
     delay(9, function()
         if sound then
@@ -244,7 +280,7 @@ createButton("吓唬", UDim2.new(0.5, -80, 0.1, 0), function()
 end)
 
 createButton("吓唬2", UDim2.new(0.5, -80, 0.2, 0), function()
-    local imageGui = showFullscreenImage("scare2.png", 18)
+    showFullscreenImage("scare2.png", 18)
     local sound = playMusic("scare23_bgm.mp3", false)
     delay(18, function()
         if sound then
@@ -254,7 +290,7 @@ createButton("吓唬2", UDim2.new(0.5, -80, 0.2, 0), function()
 end)
 
 createButton("吓唬3", UDim2.new(0.5, -80, 0.3, 0), function()
-    local imageGui = showFullscreenImage("scare2.png", 18)
+    showFullscreenImage("scare2.png", 18)
     local sound = playMusic("scare23_bgm.mp3", false)
     delay(18, function()
         if sound then
