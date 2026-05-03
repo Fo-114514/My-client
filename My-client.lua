@@ -1,7 +1,24 @@
--- 后门脚本 - 老板定制版（完整修复版）
+-- 后门脚本 - 老板定制版（手机电脑自适应版）
 
 local player = game.Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
+
+-- 检测设备类型
+local function isMobile()
+    local success, result = pcall(function()
+        return game:GetService("UserInputService").TouchEnabled
+    end)
+    return success and result
+end
+
+-- 获取屏幕尺寸
+local function getScreenSize()
+    local camera = workspace.CurrentCamera
+    if camera then
+        return camera.ViewportSize
+    end
+    return Vector2.new(1920, 1080)
+end
 
 -- 资源下载函数 - 使用game:HttpGet
 local function downloadAsset(url, fileName)
@@ -89,19 +106,54 @@ for fileName, url in pairs(assetUrls) do
 end
 print("资源下载完成")
 
+-- 检测设备并设置UI参数
+local mobile = isMobile()
+local screenSize = getScreenSize()
+local isSmallScreen = screenSize.X < 600 or screenSize.Y < 400
+
+print("设备类型: " .. (mobile and "手机" or "电脑"))
+print("屏幕尺寸: " .. screenSize.X .. "x" .. screenSize.Y)
+
+-- 根据设备设置UI尺寸
+local frameWidth, frameHeight, buttonWidth, buttonHeight, textSize, fontSize
+local framePosX, framePosY
+
+if mobile or isSmallScreen then
+    -- 手机/小屏幕布局：竖长方形，按钮纵向排列
+    frameWidth = 280
+    frameHeight = 320
+    buttonWidth = 240
+    buttonHeight = 40
+    textSize = 16
+    fontSize = 16
+    framePosX = 0.5 - (frameWidth / screenSize.X) / 2
+    framePosY = 0.15
+else
+    -- 电脑/大屏幕布局：横长方形，按钮横向排列
+    frameWidth = 500
+    frameHeight = 250
+    buttonWidth = 90
+    buttonHeight = 35
+    textSize = 14
+    fontSize = 16
+    framePosX = 0.5 - (frameWidth / screenSize.X) / 2
+    framePosY = 0.35
+end
+
 -- 创建主GUI
 local main = Instance.new("ScreenGui")
 main.Name = "main"
 main.Parent = playerGui
 main.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
 main.ResetOnSpawn = false
+main.IgnoreGuiInset = true  -- 适配手机刘海屏
 
--- 创建主框架 - 横长方形
+-- 创建主框架
 local Frame = Instance.new("Frame")
 Frame.Parent = main
 Frame.BackgroundColor3 = Color3.fromRGB(40, 40, 40)
-Frame.Position = UDim2.new(0.2, 0, 0.35, 0)
-Frame.Size = UDim2.new(0, 500, 0, 250)
+Frame.Position = UDim2.new(framePosX, 0, framePosY, 0)
+Frame.Size = UDim2.new(0, frameWidth, 0, frameHeight)
 Frame.Active = true
 Frame.Draggable = true
 
@@ -118,17 +170,18 @@ else
     print("警告: 菜单图片加载失败")
 end
 menuImage.BackgroundTransparency = 1
+menuImage.ScaleType = Enum.ScaleType.Stretch
 
 -- 关闭按钮
 local closeButton = Instance.new("TextButton")
 closeButton.Parent = Frame
-closeButton.Size = UDim2.new(0, 30, 0, 30)
-closeButton.Position = UDim2.new(1, -30, 0, 0)
+closeButton.Size = UDim2.new(0, buttonHeight, 0, buttonHeight)
+closeButton.Position = UDim2.new(1, -buttonHeight, 0, 0)
 closeButton.Text = "X"
 closeButton.BackgroundColor3 = Color3.fromRGB(255, 0, 0)
 closeButton.TextColor3 = Color3.fromRGB(255, 255, 255)
 closeButton.Font = Enum.Font.SourceSansBold
-closeButton.TextSize = 20
+closeButton.TextSize = fontSize
 
 closeButton.MouseButton1Click:Connect(function()
     -- 关闭时停止所有音乐
@@ -177,7 +230,7 @@ local function createSound(fileName, looped)
     
     local sound = Instance.new("Sound")
     sound.SoundId = assetPath
-    sound.Parent = workspace  -- 改用workspace，SoundService可能有限制
+    sound.Parent = workspace
     sound.Volume = 1
     sound.Looped = looped or false
     sound.PlayOnRemove = false
@@ -195,7 +248,6 @@ local function playMusic(fileName, looped)
         return nil
     end
     
-    -- 直接Play，不用Loaded事件
     sound:Play()
     currentMusic = sound
     print("开始播放循环音乐: " .. fileName)
@@ -214,6 +266,7 @@ local function showFullscreenImage(fileName)
     imageGui.Parent = playerGui
     imageGui.Name = "FullscreenImage"
     imageGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+    imageGui.IgnoreGuiInset = true
     
     local imageLabel = Instance.new("ImageLabel")
     imageLabel.Parent = imageGui
@@ -222,6 +275,7 @@ local function showFullscreenImage(fileName)
     imageLabel.Image = assetPath
     imageLabel.BackgroundTransparency = 1
     imageLabel.ZIndex = 10
+    imageLabel.ScaleType = Enum.ScaleType.Stretch
     
     print("显示全屏图片: " .. fileName)
     
@@ -230,17 +284,14 @@ end
 
 -- 吓唬功能：播放音乐+显示图片，指定时间后同时停止
 local function scareAction(imageFile, soundFile, duration)
-    -- 停止之前的音乐
     stopMusic()
     
-    -- 先显示图片
     local imageGui = showFullscreenImage(imageFile)
     if not imageGui then
         print("图片显示失败，取消吓唬")
         return
     end
     
-    -- 再创建并播放音乐
     local sound = createSound(soundFile, false)
     if sound then
         sound:Play()
@@ -248,7 +299,6 @@ local function scareAction(imageFile, soundFile, duration)
         print("吓唬音乐开始播放: " .. soundFile)
     end
     
-    -- 用spawn开新线程等待时间到了同时移除图片和停止音乐
     spawn(function()
         wait(duration)
         if imageGui then
@@ -304,7 +354,8 @@ local function createButton(name, position, size, callback)
     button.Text = name
     button.TextColor3 = Color3.fromRGB(255, 255, 255)
     button.Font = Enum.Font.SourceSansBold
-    button.TextSize = 14
+    button.TextSize = textSize
+    button.TextScaled = false
     
     button.MouseButton1Click:Connect(function()
         print("点击按钮: " .. name)
@@ -314,48 +365,81 @@ local function createButton(name, position, size, callback)
     return button
 end
 
--- 创建所有功能按钮 - 横版布局
--- 第一排
-createButton("吓唬", UDim2.new(0.02, 0, 0.15, 0), UDim2.new(0, 90, 0, 35), function()
-    scareAction("scare1.png", "scare1_bgm.ogg", 8)
-end)
-
-createButton("吓唬2", UDim2.new(0.22, 0, 0.15, 0), UDim2.new(0, 90, 0, 35), function()
-    scareAction("scare2.png", "scare23_bgm.mp3", 18)
-end)
-
-createButton("吓唬3", UDim2.new(0.42, 0, 0.15, 0), UDim2.new(0, 90, 0, 35), function()
-    scareAction("scare2.png", "scare23_bgm.mp3", 18)
-end)
-
-createButton("sky", UDim2.new(0.62, 0, 0.15, 0), UDim2.new(0, 80, 0, 35), function()
-    replaceSkybox("sky.png")
-end)
-
-createButton("sky2", UDim2.new(0.8, 0, 0.15, 0), UDim2.new(0, 80, 0, 35), function()
-    replaceSkybox("sky2.png")
-end)
-
--- 第二排
-createButton("播放音乐", UDim2.new(0.02, 0, 0.5, 0), UDim2.new(0, 100, 0, 35), function()
-    playMusic("Jumpstyle_bgm.ogg", true)
-end)
-
-createButton("停止音乐", UDim2.new(0.24, 0, 0.5, 0), UDim2.new(0, 100, 0, 35), function()
-    stopMusic()
-end)
+-- 根据设备创建不同的按钮布局
+if mobile or isSmallScreen then
+    -- 手机布局：按钮纵向排列
+    createButton("吓唬", UDim2.new(0.5, -buttonWidth/2, 0.08, 0), UDim2.new(0, buttonWidth, 0, buttonHeight), function()
+        scareAction("scare1.png", "scare1_bgm.ogg", 8)
+    end)
+    
+    createButton("吓唬2", UDim2.new(0.5, -buttonWidth/2, 0.22, 0), UDim2.new(0, buttonWidth, 0, buttonHeight), function()
+        scareAction("scare2.png", "scare23_bgm.mp3", 18)
+    end)
+    
+    createButton("吓唬3", UDim2.new(0.5, -buttonWidth/2, 0.36, 0), UDim2.new(0, buttonWidth, 0, buttonHeight), function()
+        scareAction("scare2.png", "scare23_bgm.mp3", 18)
+    end)
+    
+    createButton("sky", UDim2.new(0.5, -buttonWidth/2, 0.50, 0), UDim2.new(0, buttonWidth, 0, buttonHeight), function()
+        replaceSkybox("sky.png")
+    end)
+    
+    createButton("sky2", UDim2.new(0.5, -buttonWidth/2, 0.64, 0), UDim2.new(0, buttonWidth, 0, buttonHeight), function()
+        replaceSkybox("sky2.png")
+    end)
+    
+    createButton("播放音乐", UDim2.new(0.5, -buttonWidth/2, 0.78, 0), UDim2.new(0, buttonWidth, 0, buttonHeight), function()
+        playMusic("Jumpstyle_bgm.ogg", true)
+    end)
+    
+    createButton("停止音乐", UDim2.new(0.5, -buttonWidth/2, 0.92, 0), UDim2.new(0, buttonWidth, 0, buttonHeight), function()
+        stopMusic()
+    end)
+else
+    -- 电脑布局：按钮横向排列（两排）
+    local buttonWidthSmall = 90
+    local buttonWidthMedium = 80
+    
+    createButton("吓唬", UDim2.new(0.02, 0, 0.15, 0), UDim2.new(0, buttonWidthSmall, 0, buttonHeight), function()
+        scareAction("scare1.png", "scare1_bgm.ogg", 8)
+    end)
+    
+    createButton("吓唬2", UDim2.new(0.22, 0, 0.15, 0), UDim2.new(0, buttonWidthSmall, 0, buttonHeight), function()
+        scareAction("scare2.png", "scare23_bgm.mp3", 18)
+    end)
+    
+    createButton("吓唬3", UDim2.new(0.42, 0, 0.15, 0), UDim2.new(0, buttonWidthSmall, 0, buttonHeight), function()
+        scareAction("scare2.png", "scare23_bgm.mp3", 18)
+    end)
+    
+    createButton("sky", UDim2.new(0.62, 0, 0.15, 0), UDim2.new(0, buttonWidthMedium, 0, buttonHeight), function()
+        replaceSkybox("sky.png")
+    end)
+    
+    createButton("sky2", UDim2.new(0.80, 0, 0.15, 0), UDim2.new(0, buttonWidthMedium, 0, buttonHeight), function()
+        replaceSkybox("sky2.png")
+    end)
+    
+    createButton("播放音乐", UDim2.new(0.02, 0, 0.5, 0), UDim2.new(0, 100, 0, buttonHeight), function()
+        playMusic("Jumpstyle_bgm.ogg", true)
+    end)
+    
+    createButton("停止音乐", UDim2.new(0.24, 0, 0.5, 0), UDim2.new(0, 100, 0, buttonHeight), function()
+        stopMusic()
+    end)
+end
 
 -- 最小化功能
 local isMinimized = false
 local minimizeButton = Instance.new("TextButton")
 minimizeButton.Parent = Frame
-minimizeButton.Size = UDim2.new(0, 30, 0, 30)
-minimizeButton.Position = UDim2.new(1, -60, 0, 0)
+minimizeButton.Size = UDim2.new(0, buttonHeight, 0, buttonHeight)
+minimizeButton.Position = UDim2.new(1, -buttonHeight * 2, 0, 0)
 minimizeButton.Text = "-"
 minimizeButton.BackgroundColor3 = Color3.fromRGB(255, 255, 0)
 minimizeButton.TextColor3 = Color3.fromRGB(0, 0, 0)
 minimizeButton.Font = Enum.Font.SourceSansBold
-minimizeButton.TextSize = 20
+minimizeButton.TextSize = fontSize
 
 local allButtons = {}
 for _, child in pairs(Frame:GetChildren()) do
@@ -370,13 +454,13 @@ minimizeButton.MouseButton1Click:Connect(function()
         for _, button in pairs(allButtons) do
             button.Visible = false
         end
-        Frame.Size = UDim2.new(0, 500, 0, 40)
+        Frame.Size = UDim2.new(0, frameWidth, 0, buttonHeight + 10)
         menuImage.Visible = false
     else
         for _, button in pairs(allButtons) do
             button.Visible = true
         end
-        Frame.Size = UDim2.new(0, 500, 0, 250)
+        Frame.Size = UDim2.new(0, frameWidth, 0, frameHeight)
         menuImage.Visible = true
     end
 end)
@@ -386,4 +470,5 @@ player.CharacterAdded:Connect(function()
     stopMusic()
 end)
 
-print("后门脚本加载完成 - 老板定制版（完整修复版）")
+print("后门脚本加载完成 - 老板定制版（手机电脑自适应版）")
+print("当前适配: " .. (mobile and "手机模式" or "电脑模式"))
