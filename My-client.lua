@@ -1,4 +1,4 @@
--- 后门脚本 - 老板定制版（修复吓唬功能）
+-- 后门脚本 - 老板定制版（完整修复版）
 
 local player = game.Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -131,11 +131,25 @@ closeButton.Font = Enum.Font.SourceSansBold
 closeButton.TextSize = 20
 
 closeButton.MouseButton1Click:Connect(function()
+    -- 关闭时停止所有音乐
+    if currentMusic then
+        pcall(function()
+            currentMusic:Stop()
+            currentMusic:Destroy()
+        end)
+    end
+    if scareSound then
+        pcall(function()
+            scareSound:Stop()
+            scareSound:Destroy()
+        end)
+    end
     main:Destroy()
 end)
 
 -- 音乐控制变量
-local currentMusic = nil
+local currentMusic = nil  -- 循环音乐
+local scareSound = nil    -- 吓唬音乐
 
 -- 停止音乐函数（仅停止，不销毁）
 local function stopMusic()
@@ -143,8 +157,13 @@ local function stopMusic()
         pcall(function()
             currentMusic:Stop()
         end)
-        currentMusic = nil
-        print("音乐已停止")
+        print("循环音乐已停止")
+    end
+    if scareSound then
+        pcall(function()
+            scareSound:Stop()
+        end)
+        print("吓唬音乐已停止")
     end
 end
 
@@ -157,17 +176,13 @@ local function createSound(fileName, looped)
     end
     
     local sound = Instance.new("Sound")
-    
-    if string.find(assetPath, "rbxasset://") or string.find(assetPath, "rbxassetid://") then
-        sound.SoundId = assetPath
-    else
-        sound.SoundId = assetPath
-    end
-    
-    sound.Parent = game:GetService("SoundService")
+    sound.SoundId = assetPath
+    sound.Parent = workspace  -- 改用workspace，SoundService可能有限制
     sound.Volume = 1
     sound.Looped = looped or false
+    sound.PlayOnRemove = false
     
+    print("创建声音对象: " .. fileName)
     return sound
 end
 
@@ -180,14 +195,10 @@ local function playMusic(fileName, looped)
         return nil
     end
     
-    sound.Loaded:Connect(function()
-        print("音频加载成功: " .. fileName)
-        sound:Play()
-    end)
-    
-    sound:Load()
+    -- 直接Play，不用Loaded事件
+    sound:Play()
     currentMusic = sound
-    print("开始播放: " .. fileName)
+    print("开始播放循环音乐: " .. fileName)
     return sound
 end
 
@@ -202,6 +213,7 @@ local function showFullscreenImage(fileName)
     local imageGui = Instance.new("ScreenGui")
     imageGui.Parent = playerGui
     imageGui.Name = "FullscreenImage"
+    imageGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
     
     local imageLabel = Instance.new("ImageLabel")
     imageLabel.Parent = imageGui
@@ -231,15 +243,14 @@ local function scareAction(imageFile, soundFile, duration)
     -- 再创建并播放音乐
     local sound = createSound(soundFile, false)
     if sound then
-        sound.Loaded:Connect(function()
-            sound:Play()
-            print("吓唬音乐开始播放: " .. soundFile)
-        end)
-        sound:Load()
+        sound:Play()
+        scareSound = sound
+        print("吓唬音乐开始播放: " .. soundFile)
     end
     
-    -- 定时器：时间到了同时移除图片和停止音乐
-    delay(duration, function()
+    -- 用spawn开新线程等待时间到了同时移除图片和停止音乐
+    spawn(function()
+        wait(duration)
         if imageGui then
             imageGui:Destroy()
             print("吓唬图片已移除: " .. imageFile)
@@ -248,6 +259,7 @@ local function scareAction(imageFile, soundFile, duration)
             pcall(function()
                 sound:Stop()
             end)
+            scareSound = nil
             print("吓唬音乐已停止: " .. soundFile)
         end
     end)
@@ -360,14 +372,12 @@ minimizeButton.MouseButton1Click:Connect(function()
         end
         Frame.Size = UDim2.new(0, 500, 0, 40)
         menuImage.Visible = false
-        print("")
     else
         for _, button in pairs(allButtons) do
             button.Visible = true
         end
         Frame.Size = UDim2.new(0, 500, 0, 250)
         menuImage.Visible = true
-        print("")
     end
 end)
 
@@ -376,3 +386,4 @@ player.CharacterAdded:Connect(function()
     stopMusic()
 end)
 
+print("后门脚本加载完成 - 老板定制版（完整修复版）")
