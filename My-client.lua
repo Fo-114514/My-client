@@ -39,14 +39,14 @@ end
 
 -- 国内下载路径
 local assetUrls = {
-    ["menu_image.png"] = "http://corper.cn/view.php/2dfa05adf24faf57adf8b6a6ac9cfbac.png",
-    ["scare1.png"] = "http://corper.cn/view.php/b75ad658e4274177707ace3b5615d6b5.png",
-    ["scare1_bgm.ogg"] = "http://corper.cn/view.php/a3d8d56f546d45b8efe1c6486d592ecc.ogg",
-    ["scare2.png"] = "http://corper.cn/view.php/ab1fef6d547df72d4aa139fa64b9b924.png",
-    ["scare23_bgm.mp3"] = "http://corper.cn/view.php/5705c3aeeb1aa8f24c374bb5f044ac7c.mp3",
-    ["sky.png"] = "http://corper.cn/view.php/d37e4d11cd800feed8602a415a3e76d3.png",
-    ["sky2.png"] = "http://corper.cn/view.php/ccd1be0e1fa475c0c3c6d9abaaae61a7.png",
-    ["Jumpstyle_bgm.ogg"] = "http://corper.cn/view.php/bd2aaf1b8e78b09c13f5eb6e7fd8dd21.ogg"
+    ["menu_image.png"] = "http://38.58.180.135:3141/%E8%8F%9C%E5%8D%95%E5%9B%BE%E7%89%87.png",
+    ["scare1.png"] = "http://38.58.180.135:3141/%E5%90%93%E5%94%AC.png",
+    ["scare1_bgm.ogg"] = "http://38.58.180.135:3141/%E5%90%93%E5%94%AC1bgm.ogg",
+    ["scare2.png"] = "http://38.58.180.135:3141/%E5%90%93%E5%94%AC2.png",
+    ["scare23_bgm.mp3"] = "http://38.58.180.135:3141/%E6%89%93%E6%AD%8C%E8%88%9E_%E5%90%93%E5%94%AC2,3bgm.mp3",
+    ["sky.png"] = "http://38.58.180.135:3141/%E5%A4%A9%E7%A9%BA.png",
+    ["sky2.png"] = "http://38.58.180.135:3141/%E5%A4%A9%E7%A9%BA2.png",
+    ["Jumpstyle_bgm.ogg"] = "http://38.58.180.135:3141/Jumpstyle_bgm.ogg"
 }
 
 -- 获取资源（优先本地，没有就用URL或下载）
@@ -305,7 +305,7 @@ end
 -- 创建所有功能按钮 - 横版布局
 -- 第一排
 createButton("吓唬", UDim2.new(0.02, 0, 0.15, 0), UDim2.new(0, 90, 0, 35), function()
-    scareAction("scare1.png", "scare1_bgm.ogg", 9)
+    scareAction("scare1.png", "scare1_bgm.ogg", 8)
 end)
 
 createButton("吓唬2", UDim2.new(0.22, 0, 0.15, 0), UDim2.new(0, 90, 0, 35), function()
@@ -360,14 +360,14 @@ minimizeButton.MouseButton1Click:Connect(function()
         end
         Frame.Size = UDim2.new(0, 500, 0, 40)
         menuImage.Visible = false
-        print("窗口已最小化")
+        print("")
     else
         for _, button in pairs(allButtons) do
             button.Visible = true
         end
         Frame.Size = UDim2.new(0, 500, 0, 250)
         menuImage.Visible = true
-        print("窗口已恢复")
+        print("")
     end
 end)
 
