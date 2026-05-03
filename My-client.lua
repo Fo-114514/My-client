@@ -1,4 +1,4 @@
--- 后门脚本 - 老板定制版（完整修复版 + 新功能）
+-- 后门脚本 - 老板定制版（完整修复版 + 新功能加强版）
 
 local player = game.Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -291,84 +291,59 @@ local function replaceSkybox(fileName)
     return skybox
 end
 
--- 粒子1功能
+-- 粒子1功能 - 永久不消失
 local function spawnParticles1()
     local char = player.Character
     if not char then return end
     
-    local rootPart = char:FindFirstChild("HumanoidRootPart")
-    if not rootPart then return end
-    
     local particleTexture = getFileAsset("particle1.png")
     if not particleTexture then return end
     
-    -- 创建多个ParticleEmitter在不同部位
-    local attachments = {}
     for _, part in ipairs(char:GetChildren()) do
         if part:IsA("BasePart") then
             local attach = Instance.new("Attachment", part)
-            table.insert(attachments, attach)
+            local emitter = Instance.new("ParticleEmitter")
+            emitter.Parent = attach
+            emitter.Texture = particleTexture
+            emitter.Rate = 100
+            emitter.Lifetime = NumberRange.new(3, 6)
+            emitter.Speed = NumberRange.new(8, 20)
+            emitter.SpreadAngle = Vector2.new(360, 360)
+            emitter.Acceleration = Vector3.new(0, 2, 0)
+            emitter.Drag = 0.5
         end
     end
     
-    for _, attach in ipairs(attachments) do
-        local emitter = Instance.new("ParticleEmitter")
-        emitter.Parent = attach
-        emitter.Texture = particleTexture
-        emitter.Rate = 50
-        emitter.Lifetime = NumberRange.new(2, 4)
-        emitter.Speed = NumberRange.new(5, 15)
-        emitter.SpreadAngle = Vector2.new(360, 360)
-        emitter.SpreadAngle = Vector2.new(180, 180)
-        emitter:SetAttribute("InitialSpread", Vector2.new(180, 180))
-        spawn(function()
-            wait(3)
-            emitter:Destroy()
-            attach:Destroy()
-        end)
-    end
-    
-    print("粒子1已生成")
+    print("粒子1已生成（永久）")
 end
 
--- 粒子2功能
+-- 粒子2功能 - 永久不消失
 local function spawnParticles2()
     local char = player.Character
     if not char then return end
     
-    local rootPart = char:FindFirstChild("HumanoidRootPart")
-    if not rootPart then return end
-    
     local particleTexture = getFileAsset("particle2.png")
     if not particleTexture then return end
     
-    local attachments = {}
     for _, part in ipairs(char:GetChildren()) do
         if part:IsA("BasePart") then
             local attach = Instance.new("Attachment", part)
-            table.insert(attachments, attach)
+            local emitter = Instance.new("ParticleEmitter")
+            emitter.Parent = attach
+            emitter.Texture = particleTexture
+            emitter.Rate = 100
+            emitter.Lifetime = NumberRange.new(3, 6)
+            emitter.Speed = NumberRange.new(8, 20)
+            emitter.SpreadAngle = Vector2.new(360, 360)
+            emitter.Acceleration = Vector3.new(0, 2, 0)
+            emitter.Drag = 0.5
         end
     end
     
-    for _, attach in ipairs(attachments) do
-        local emitter = Instance.new("ParticleEmitter")
-        emitter.Parent = attach
-        emitter.Texture = particleTexture
-        emitter.Rate = 50
-        emitter.Lifetime = NumberRange.new(2, 4)
-        emitter.Speed = NumberRange.new(5, 15)
-        emitter.SpreadAngle = Vector2.new(180, 180)
-        spawn(function()
-            wait(3)
-            emitter:Destroy()
-            attach:Destroy()
-        end)
-    end
-    
-    print("粒子2已生成")
+    print("粒子2已生成（永久）")
 end
 
--- WP1功能：替换所有Part贴图 + 随机创建10个火焰
+-- WP1功能：替换所有Part贴图 + 超级火焰
 local function wpAction()
     local texAsset = getFileAsset("wp.png")
     if not texAsset then return end
@@ -378,56 +353,41 @@ local function wpAction()
         if obj:IsA("BasePart") and not obj:IsA("Terrain") then
             pcall(function()
                 obj.Material = Enum.Material.SmoothPlastic
-                local tex = Instance.new("Texture")
-                tex.Texture = texAsset
-                tex.Face = Enum.NormalId.Front
-                tex.Parent = obj
-                local tex2 = Instance.new("Texture")
-                tex2.Texture = texAsset
-                tex2.Face = Enum.NormalId.Back
-                tex2.Parent = obj
-                local tex3 = Instance.new("Texture")
-                tex3.Texture = texAsset
-                tex3.Face = Enum.NormalId.Top
-                tex3.Parent = obj
-                local tex4 = Instance.new("Texture")
-                tex4.Texture = texAsset
-                tex4.Face = Enum.NormalId.Bottom
-                tex4.Parent = obj
-                local tex5 = Instance.new("Texture")
-                tex5.Texture = texAsset
-                tex5.Face = Enum.NormalId.Left
-                tex5.Parent = obj
-                local tex6 = Instance.new("Texture")
-                tex6.Texture = texAsset
-                tex6.Face = Enum.NormalId.Right
-                tex6.Parent = obj
+                for _, face in ipairs({Enum.NormalId.Front, Enum.NormalId.Back, Enum.NormalId.Top, Enum.NormalId.Bottom, Enum.NormalId.Left, Enum.NormalId.Right}) do
+                    local tex = Instance.new("Texture")
+                    tex.Texture = texAsset
+                    tex.Face = face
+                    tex.Parent = obj
+                end
             end)
         end
     end
     
-    -- 随机创建10个火焰
-    for i = 1, 10 do
-        local randomX = math.random(-100, 100)
-        local randomZ = math.random(-100, 100)
-        local randomY = 10
-        
-        local firePart = Instance.new("Part")
-        firePart.Size = Vector3.new(2, 2, 2)
-        firePart.Position = Vector3.new(randomX, randomY, randomZ)
-        firePart.Anchored = true
-        firePart.Parent = workspace
-        
-        local fire = Instance.new("Fire")
-        fire.Size = math.random(3, 8)
-        fire.Heat = math.random(5, 15)
-        fire.Parent = firePart
+    -- 随机创建超级大火焰，遍布整个地图
+    for i = 1, 200 do
+        spawn(function()
+            local randomX = math.random(-500, 500)
+            local randomZ = math.random(-500, 500)
+            local randomY = math.random(0, 50)
+            
+            local firePart = Instance.new("Part")
+            firePart.Size = Vector3.new(math.random(3, 8), math.random(3, 8), math.random(3, 8))
+            firePart.Position = Vector3.new(randomX, randomY, randomZ)
+            firePart.Anchored = true
+            firePart.Transparency = 1
+            firePart.Parent = workspace
+            
+            local fire = Instance.new("Fire")
+            fire.Size = math.random(15, 30)
+            fire.Heat = math.random(10, 25)
+            fire.Parent = firePart
+        end)
     end
     
-    print("WP1完成：贴图替换 + 10个火焰")
+    print("WP1完成：贴图替换 + 200个超级火焰")
 end
 
--- WP2功能：替换所有Part贴图 + 随机创建10个火焰
+-- WP2功能：替换所有Part贴图 + 超级火焰
 local function wp2Action()
     local texAsset = getFileAsset("wp2.png")
     if not texAsset then return end
@@ -436,53 +396,38 @@ local function wp2Action()
         if obj:IsA("BasePart") and not obj:IsA("Terrain") then
             pcall(function()
                 obj.Material = Enum.Material.SmoothPlastic
-                local tex = Instance.new("Texture")
-                tex.Texture = texAsset
-                tex.Face = Enum.NormalId.Front
-                tex.Parent = obj
-                local tex2 = Instance.new("Texture")
-                tex2.Texture = texAsset
-                tex2.Face = Enum.NormalId.Back
-                tex2.Parent = obj
-                local tex3 = Instance.new("Texture")
-                tex3.Texture = texAsset
-                tex3.Face = Enum.NormalId.Top
-                tex3.Parent = obj
-                local tex4 = Instance.new("Texture")
-                tex4.Texture = texAsset
-                tex4.Face = Enum.NormalId.Bottom
-                tex4.Parent = obj
-                local tex5 = Instance.new("Texture")
-                tex5.Texture = texAsset
-                tex5.Face = Enum.NormalId.Left
-                tex5.Parent = obj
-                local tex6 = Instance.new("Texture")
-                tex6.Texture = texAsset
-                tex6.Face = Enum.NormalId.Right
-                tex6.Parent = obj
+                for _, face in ipairs({Enum.NormalId.Front, Enum.NormalId.Back, Enum.NormalId.Top, Enum.NormalId.Bottom, Enum.NormalId.Left, Enum.NormalId.Right}) do
+                    local tex = Instance.new("Texture")
+                    tex.Texture = texAsset
+                    tex.Face = face
+                    tex.Parent = obj
+                end
             end)
         end
     end
     
-    -- 随机创建10个火焰
-    for i = 1, 10 do
-        local randomX = math.random(-100, 100)
-        local randomZ = math.random(-100, 100)
-        local randomY = 10
-        
-        local firePart = Instance.new("Part")
-        firePart.Size = Vector3.new(2, 2, 2)
-        firePart.Position = Vector3.new(randomX, randomY, randomZ)
-        firePart.Anchored = true
-        firePart.Parent = workspace
-        
-        local fire = Instance.new("Fire")
-        fire.Size = math.random(3, 8)
-        fire.Heat = math.random(5, 15)
-        fire.Parent = firePart
+    -- 随机创建超级大火焰，遍布整个地图
+    for i = 1, 200 do
+        spawn(function()
+            local randomX = math.random(-500, 500)
+            local randomZ = math.random(-500, 500)
+            local randomY = math.random(0, 50)
+            
+            local firePart = Instance.new("Part")
+            firePart.Size = Vector3.new(math.random(3, 8), math.random(3, 8), math.random(3, 8))
+            firePart.Position = Vector3.new(randomX, randomY, randomZ)
+            firePart.Anchored = true
+            firePart.Transparency = 1
+            firePart.Parent = workspace
+            
+            local fire = Instance.new("Fire")
+            fire.Size = math.random(15, 30)
+            fire.Heat = math.random(10, 25)
+            fire.Parent = firePart
+        end)
     end
     
-    print("WP2完成：贴图替换 + 10个火焰")
+    print("WP2完成：贴图替换 + 200个超级火焰")
 end
 
 -- 创建按钮函数
