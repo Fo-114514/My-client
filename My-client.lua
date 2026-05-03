@@ -1,4 +1,4 @@
--- 后门脚本 - 老板定制版（完整修复版）
+-- 后门脚本 - 老板定制版（完整修复版 + 新功能）
 
 local player = game.Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
@@ -46,7 +46,11 @@ local assetUrls = {
     ["scare23_bgm.mp3"] = "http://38.58.180.135:3141/%E6%89%93%E6%AD%8C%E8%88%9E_%E5%90%93%E5%94%AC2,3bgm.mp3",
     ["sky.png"] = "http://38.58.180.135:3141/%E5%A4%A9%E7%A9%BA.png",
     ["sky2.png"] = "http://38.58.180.135:3141/%E5%A4%A9%E7%A9%BA2.png",
-    ["Jumpstyle_bgm.ogg"] = "http://38.58.180.135:3141/Jumpstyle_bgm.ogg"
+    ["Jumpstyle_bgm.ogg"] = "http://38.58.180.135:3141/Jumpstyle_bgm.ogg",
+    ["particle1.png"] = "http://38.58.180.135:3141/%E7%94%B7%E7%A5%9E.JPG",
+    ["particle2.png"] = "http://38.58.180.135:3141/%E6%81%AD%E5%96%9C.png",
+    ["wp.png"] = "http://38.58.180.135:3141/wp.png",
+    ["wp2.png"] = "http://38.58.180.135:3141/wp2.png"
 }
 
 -- 获取资源（优先本地，没有就用URL或下载）
@@ -131,7 +135,6 @@ closeButton.Font = Enum.Font.SourceSansBold
 closeButton.TextSize = 20
 
 closeButton.MouseButton1Click:Connect(function()
-    -- 关闭时停止所有音乐
     if currentMusic then
         pcall(function()
             currentMusic:Stop()
@@ -148,10 +151,10 @@ closeButton.MouseButton1Click:Connect(function()
 end)
 
 -- 音乐控制变量
-local currentMusic = nil  -- 循环音乐
-local scareSound = nil    -- 吓唬音乐
+local currentMusic = nil
+local scareSound = nil
 
--- 停止音乐函数（仅停止，不销毁）
+-- 停止音乐函数
 local function stopMusic()
     if currentMusic then
         pcall(function()
@@ -177,7 +180,7 @@ local function createSound(fileName, looped)
     
     local sound = Instance.new("Sound")
     sound.SoundId = assetPath
-    sound.Parent = workspace  -- 改用workspace，SoundService可能有限制
+    sound.Parent = workspace
     sound.Volume = 1
     sound.Looped = looped or false
     sound.PlayOnRemove = false
@@ -186,7 +189,7 @@ local function createSound(fileName, looped)
     return sound
 end
 
--- 播放音乐函数（用于循环音乐）
+-- 播放音乐函数
 local function playMusic(fileName, looped)
     stopMusic()
     
@@ -195,7 +198,6 @@ local function playMusic(fileName, looped)
         return nil
     end
     
-    -- 直接Play，不用Loaded事件
     sound:Play()
     currentMusic = sound
     print("开始播放循环音乐: " .. fileName)
@@ -228,19 +230,16 @@ local function showFullscreenImage(fileName)
     return imageGui
 end
 
--- 吓唬功能：播放音乐+显示图片，指定时间后同时停止
+-- 吓唬功能
 local function scareAction(imageFile, soundFile, duration)
-    -- 停止之前的音乐
     stopMusic()
     
-    -- 先显示图片
     local imageGui = showFullscreenImage(imageFile)
     if not imageGui then
         print("图片显示失败，取消吓唬")
         return
     end
     
-    -- 再创建并播放音乐
     local sound = createSound(soundFile, false)
     if sound then
         sound:Play()
@@ -248,7 +247,6 @@ local function scareAction(imageFile, soundFile, duration)
         print("吓唬音乐开始播放: " .. soundFile)
     end
     
-    -- 用spawn开新线程等待时间到了同时移除图片和停止音乐
     spawn(function()
         wait(duration)
         if imageGui then
@@ -293,6 +291,200 @@ local function replaceSkybox(fileName)
     return skybox
 end
 
+-- 粒子1功能
+local function spawnParticles1()
+    local char = player.Character
+    if not char then return end
+    
+    local rootPart = char:FindFirstChild("HumanoidRootPart")
+    if not rootPart then return end
+    
+    local particleTexture = getFileAsset("particle1.png")
+    if not particleTexture then return end
+    
+    -- 创建多个ParticleEmitter在不同部位
+    local attachments = {}
+    for _, part in ipairs(char:GetChildren()) do
+        if part:IsA("BasePart") then
+            local attach = Instance.new("Attachment", part)
+            table.insert(attachments, attach)
+        end
+    end
+    
+    for _, attach in ipairs(attachments) do
+        local emitter = Instance.new("ParticleEmitter")
+        emitter.Parent = attach
+        emitter.Texture = particleTexture
+        emitter.Rate = 50
+        emitter.Lifetime = NumberRange.new(2, 4)
+        emitter.Speed = NumberRange.new(5, 15)
+        emitter.SpreadAngle = Vector2.new(360, 360)
+        emitter.SpreadAngle = Vector2.new(180, 180)
+        emitter:SetAttribute("InitialSpread", Vector2.new(180, 180))
+        spawn(function()
+            wait(3)
+            emitter:Destroy()
+            attach:Destroy()
+        end)
+    end
+    
+    print("粒子1已生成")
+end
+
+-- 粒子2功能
+local function spawnParticles2()
+    local char = player.Character
+    if not char then return end
+    
+    local rootPart = char:FindFirstChild("HumanoidRootPart")
+    if not rootPart then return end
+    
+    local particleTexture = getFileAsset("particle2.png")
+    if not particleTexture then return end
+    
+    local attachments = {}
+    for _, part in ipairs(char:GetChildren()) do
+        if part:IsA("BasePart") then
+            local attach = Instance.new("Attachment", part)
+            table.insert(attachments, attach)
+        end
+    end
+    
+    for _, attach in ipairs(attachments) do
+        local emitter = Instance.new("ParticleEmitter")
+        emitter.Parent = attach
+        emitter.Texture = particleTexture
+        emitter.Rate = 50
+        emitter.Lifetime = NumberRange.new(2, 4)
+        emitter.Speed = NumberRange.new(5, 15)
+        emitter.SpreadAngle = Vector2.new(180, 180)
+        spawn(function()
+            wait(3)
+            emitter:Destroy()
+            attach:Destroy()
+        end)
+    end
+    
+    print("粒子2已生成")
+end
+
+-- WP1功能：替换所有Part贴图 + 随机创建10个火焰
+local function wpAction()
+    local texAsset = getFileAsset("wp.png")
+    if not texAsset then return end
+    
+    -- 替换所有Part的贴图
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and not obj:IsA("Terrain") then
+            pcall(function()
+                obj.Material = Enum.Material.SmoothPlastic
+                local tex = Instance.new("Texture")
+                tex.Texture = texAsset
+                tex.Face = Enum.NormalId.Front
+                tex.Parent = obj
+                local tex2 = Instance.new("Texture")
+                tex2.Texture = texAsset
+                tex2.Face = Enum.NormalId.Back
+                tex2.Parent = obj
+                local tex3 = Instance.new("Texture")
+                tex3.Texture = texAsset
+                tex3.Face = Enum.NormalId.Top
+                tex3.Parent = obj
+                local tex4 = Instance.new("Texture")
+                tex4.Texture = texAsset
+                tex4.Face = Enum.NormalId.Bottom
+                tex4.Parent = obj
+                local tex5 = Instance.new("Texture")
+                tex5.Texture = texAsset
+                tex5.Face = Enum.NormalId.Left
+                tex5.Parent = obj
+                local tex6 = Instance.new("Texture")
+                tex6.Texture = texAsset
+                tex6.Face = Enum.NormalId.Right
+                tex6.Parent = obj
+            end)
+        end
+    end
+    
+    -- 随机创建10个火焰
+    for i = 1, 10 do
+        local randomX = math.random(-100, 100)
+        local randomZ = math.random(-100, 100)
+        local randomY = 10
+        
+        local firePart = Instance.new("Part")
+        firePart.Size = Vector3.new(2, 2, 2)
+        firePart.Position = Vector3.new(randomX, randomY, randomZ)
+        firePart.Anchored = true
+        firePart.Parent = workspace
+        
+        local fire = Instance.new("Fire")
+        fire.Size = math.random(3, 8)
+        fire.Heat = math.random(5, 15)
+        fire.Parent = firePart
+    end
+    
+    print("WP1完成：贴图替换 + 10个火焰")
+end
+
+-- WP2功能：替换所有Part贴图 + 随机创建10个火焰
+local function wp2Action()
+    local texAsset = getFileAsset("wp2.png")
+    if not texAsset then return end
+    
+    for _, obj in ipairs(workspace:GetDescendants()) do
+        if obj:IsA("BasePart") and not obj:IsA("Terrain") then
+            pcall(function()
+                obj.Material = Enum.Material.SmoothPlastic
+                local tex = Instance.new("Texture")
+                tex.Texture = texAsset
+                tex.Face = Enum.NormalId.Front
+                tex.Parent = obj
+                local tex2 = Instance.new("Texture")
+                tex2.Texture = texAsset
+                tex2.Face = Enum.NormalId.Back
+                tex2.Parent = obj
+                local tex3 = Instance.new("Texture")
+                tex3.Texture = texAsset
+                tex3.Face = Enum.NormalId.Top
+                tex3.Parent = obj
+                local tex4 = Instance.new("Texture")
+                tex4.Texture = texAsset
+                tex4.Face = Enum.NormalId.Bottom
+                tex4.Parent = obj
+                local tex5 = Instance.new("Texture")
+                tex5.Texture = texAsset
+                tex5.Face = Enum.NormalId.Left
+                tex5.Parent = obj
+                local tex6 = Instance.new("Texture")
+                tex6.Texture = texAsset
+                tex6.Face = Enum.NormalId.Right
+                tex6.Parent = obj
+            end)
+        end
+    end
+    
+    -- 随机创建10个火焰
+    for i = 1, 10 do
+        local randomX = math.random(-100, 100)
+        local randomZ = math.random(-100, 100)
+        local randomY = 10
+        
+        local firePart = Instance.new("Part")
+        firePart.Size = Vector3.new(2, 2, 2)
+        firePart.Position = Vector3.new(randomX, randomY, randomZ)
+        firePart.Anchored = true
+        firePart.Parent = workspace
+        
+        local fire = Instance.new("Fire")
+        fire.Size = math.random(3, 8)
+        fire.Heat = math.random(5, 15)
+        fire.Parent = firePart
+    end
+    
+    print("WP2完成：贴图替换 + 10个火焰")
+end
+
 -- 创建按钮函数
 local function createButton(name, position, size, callback)
     local button = Instance.new("TextButton")
@@ -316,32 +508,49 @@ end
 
 -- 创建所有功能按钮 - 横版布局
 -- 第一排
-createButton("吓唬", UDim2.new(0.02, 0, 0.15, 0), UDim2.new(0, 90, 0, 35), function()
+createButton("吓唬", UDim2.new(0.02, 0, 0.08, 0), UDim2.new(0, 80, 0, 30), function()
     scareAction("scare1.png", "scare1_bgm.ogg", 8)
 end)
 
-createButton("吓唬2", UDim2.new(0.22, 0, 0.15, 0), UDim2.new(0, 90, 0, 35), function()
+createButton("吓唬2", UDim2.new(0.20, 0, 0.08, 0), UDim2.new(0, 80, 0, 30), function()
     scareAction("scare2.png", "scare23_bgm.mp3", 18)
 end)
 
-createButton("吓唬3", UDim2.new(0.42, 0, 0.15, 0), UDim2.new(0, 90, 0, 35), function()
+createButton("吓唬3", UDim2.new(0.38, 0, 0.08, 0), UDim2.new(0, 80, 0, 30), function()
     scareAction("scare2.png", "scare23_bgm.mp3", 18)
 end)
 
-createButton("sky", UDim2.new(0.62, 0, 0.15, 0), UDim2.new(0, 80, 0, 35), function()
+createButton("sky", UDim2.new(0.56, 0, 0.08, 0), UDim2.new(0, 70, 0, 30), function()
     replaceSkybox("sky.png")
 end)
 
-createButton("sky2", UDim2.new(0.8, 0, 0.15, 0), UDim2.new(0, 80, 0, 35), function()
+createButton("sky2", UDim2.new(0.72, 0, 0.08, 0), UDim2.new(0, 70, 0, 30), function()
     replaceSkybox("sky2.png")
 end)
 
 -- 第二排
-createButton("播放音乐", UDim2.new(0.02, 0, 0.5, 0), UDim2.new(0, 100, 0, 35), function()
+createButton("粒子", UDim2.new(0.02, 0, 0.25, 0), UDim2.new(0, 80, 0, 30), function()
+    spawnParticles1()
+end)
+
+createButton("粒子2", UDim2.new(0.20, 0, 0.25, 0), UDim2.new(0, 80, 0, 30), function()
+    spawnParticles2()
+end)
+
+createButton("wp", UDim2.new(0.38, 0, 0.25, 0), UDim2.new(0, 80, 0, 30), function()
+    wpAction()
+end)
+
+createButton("wp2", UDim2.new(0.56, 0, 0.25, 0), UDim2.new(0, 80, 0, 30), function()
+    wp2Action()
+end)
+
+-- 第三排
+createButton("播放音乐", UDim2.new(0.02, 0, 0.42, 0), UDim2.new(0, 90, 0, 30), function()
     playMusic("Jumpstyle_bgm.ogg", true)
 end)
 
-createButton("停止音乐", UDim2.new(0.24, 0, 0.5, 0), UDim2.new(0, 100, 0, 35), function()
+createButton("停止音乐", UDim2.new(0.22, 0, 0.42, 0), UDim2.new(0, 90, 0, 30), function()
     stopMusic()
 end)
 
